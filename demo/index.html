@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BEC: credit for your agents</title>
+<meta name="description" content="One credit score for you and every agent you run. Borrow on XRPL, spend through Mastercard Agent Pay.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112..125,700..900&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="band">
+  <div class="wrap">
+    <a class="brand" href="#top">BEC</a>
+    <nav aria-label="Main">
+      <a href="#breakdown">Score</a>
+      <a href="#credit">Credit</a>
+      <a href="#agents">Agents</a>
+      <a href="#repay">Repay</a>
+      <a href="#how">How it works</a>
+    </nav>
+    <span class="net">Devnet</span>
+    <span class="sample">Sample data</span>
+    <a class="btn light small-btn" href="#start">Get started</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- Hero: headline first, product frame second (Mercury order). Violet is the only filled plane. -->
+  <section class="wrap intro">
+    <h1 class="display t-96">Credit for every agent you run</h1>
+    <p class="t-20 lede">One score for you. One credit line for all your agents.</p>
+    <p class="cta-row">
+      <a class="btn primary" href="#start">Get your score</a>
+      <a class="btn" href="#how">See how it works</a>
+    </p>
+  </section>
+
+  <section class="wrap">
+    <div class="hero" aria-label="Score and credit used">
+      <div class="score-plane">
+        <p class="hero-label">Score</p>
+        <p class="display t-176" id="score">610</p>
+        <span class="tier" id="tier">Tier B</span>
+      </div>
+      <div class="credit-plane">
+        <div>
+          <p class="hero-label">Credit used</p>
+          <div class="used-row">
+            <p class="display t-96" id="used">$180</p>
+            <p class="t-20 muted">of $<span id="limit">250</span></p>
+          </div>
+        </div>
+        <div>
+          <div class="bar" role="img" aria-label="Credit used by agent">
+            <span class="a1" id="bar1"></span>
+            <span class="a2" id="bar2"></span>
+          </div>
+          <div class="legend">
+            <span class="l1"><i></i>Shopper</span>
+            <span class="l2"><i></i>API buyer</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" id="settle" type="button">Settle purchase</button>
+          <button class="btn" id="refuse" type="button">Try over limit</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="built">
+      <p class="small">Built on</p>
+      <ul>
+        <li>XRPL</li>
+        <li>RLUSD</li>
+        <li>Mastercard Agent Pay</li>
+        <li>QuickNode</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="breakdown">
+      <div class="split-copy">
+        <h2 class="sec">Score</h2>
+        <p class="t-32 display">One score. Every agent.</p>
+        <p class="small">Agent purchases count four times a plain payment.</p>
+      </div>
+      <div class="split-body">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Input</th><th class="num">Value</th><th class="num">Effect</th></tr></thead>
+            <tbody>
+              <tr><td>Agent purchases</td><td class="num">6.4</td><td class="num">+0.28</td></tr>
+              <tr><td>Chain payments</td><td class="num">38</td><td class="num">+0.07</td></tr>
+              <tr><td>On-time repayments</td><td class="num">100%</td><td class="num">+0.90</td></tr>
+              <tr><td>Merchants</td><td class="num">5</td><td class="num">+0.17</td></tr>
+              <tr><td>Account age</td><td class="num">41 weeks</td><td class="num">+0.16</td></tr>
+              <tr><td>Disputes</td><td class="num">0</td><td class="num">0.00</td></tr>
+              <tr><td>Late payments</td><td class="num">0</td><td class="num">0.00</td></tr>
+              <tr><td>Utilization</td><td class="num">72%</td><td class="num">-0.36</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="credit">
+      <div class="split-copy">
+        <h2 class="sec">Credit</h2>
+        <p class="t-32 display">Your tier sets your line.</p>
+        <p class="small">Shared by all your agents.</p>
+      </div>
+      <div class="split-body">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Tier</th><th>Score</th><th class="num">Credit line</th></tr></thead>
+            <tbody>
+              <tr><td>A</td><td>700 and up</td><td class="num">$1,000</td></tr>
+              <tr><td>B</td><td>580 to 699</td><td class="num">$250</td></tr>
+              <tr><td>C</td><td>Below 580</td><td class="num">$50</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="agents">
+      <div class="split-copy">
+        <h2 class="sec">Agents</h2>
+        <p class="t-32 display">Each agent has its own limit.</p>
+        <p class="small">Revoke any agent in one click.</p>
+      </div>
+      <div class="split-body">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Agent</th><th>Mode</th><th class="num">Limit</th><th class="num">Spent</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>Shopper</td><td>Immediate</td><td class="num">$150</td><td class="num" id="sp1">$110</td><td class="status" data-status><span class="mark ok"></span><span>Active</span></td><td class="num"><button class="btn small-btn" type="button" data-revoke>Revoke</button></td></tr>
+              <tr><td>API buyer</td><td>Autonomous</td><td class="num">$100</td><td class="num" id="sp2">$70</td><td class="status" data-status><span class="mark ok"></span><span>Active</span></td><td class="num"><button class="btn small-btn" type="button" data-revoke>Revoke</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="spend">
+      <div class="split-copy">
+        <h2 class="sec">Purchases</h2>
+        <p class="t-32 display">Every purchase has a hash.</p>
+        <p class="small">Refused ones are logged too.</p>
+      </div>
+      <div class="split-body">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Time</th><th>Agent</th><th>Merchant</th><th class="num">Amount</th><th>Hash</th><th>Status</th></tr></thead>
+            <tbody id="purchases">
+              <tr><td>14:02</td><td>API buyer</td><td>Tilework API</td><td class="num">$20</td><td class="mono">A91F…3C07</td><td class="status"><span class="mark ok"></span>Settled</td></tr>
+              <tr class="refused"><td>13:48</td><td>Shopper</td><td>Gearhouse</td><td class="num">$400</td><td class="mono">none</td><td class="status refused"><span class="mark bad"></span>Refused: over limit</td></tr>
+              <tr><td>13:31</td><td>Shopper</td><td>Paperly</td><td class="num">$45</td><td class="mono">7D20…B1E4</td><td class="status"><span class="mark ok"></span>Settled</td></tr>
+              <tr><td>13:12</td><td>API buyer</td><td>Mapcloud</td><td class="num">$50</td><td class="mono">02CC…F98A</td><td class="status"><span class="mark ok"></span>Settled</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="repay">
+      <div class="split-copy">
+        <h2 class="sec">Repay</h2>
+        <p class="t-32 display">Pay on time. Move up.</p>
+        <p class="small">Early payoff counts as on time.</p>
+      </div>
+      <div class="split-body">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Due</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
+            <tbody id="schedule">
+              <tr><td>Oct 12</td><td class="num">$15.60</td><td class="status"><span class="mark ok"></span>Paid</td><td></td></tr>
+              <tr data-next><td>Oct 27</td><td class="num">$15.60</td><td class="status"><span class="mark due"></span>Due soon</td><td class="num"><button class="btn small-btn primary" type="button" data-pay>Pay installment</button></td></tr>
+              <tr><td>Nov 26</td><td class="num">$15.60</td><td class="status"><span class="mark wait"></span>Upcoming</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="after"><button class="btn" type="button" id="payoff">Pay off early</button></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="how">
+      <div class="split-copy">
+        <h2 class="sec">How it works</h2>
+      </div>
+      <div class="split-body">
+        <div class="table-scroll">
+          <table class="steps">
+            <tbody>
+              <tr><td class="step">1</td><td>Prove your account</td><td class="small">Mainnet</td></tr>
+              <tr><td class="step">2</td><td>Get a tier credential</td><td class="small">Devnet</td></tr>
+              <tr><td class="step">3</td><td>Borrow</td><td class="small">Devnet</td></tr>
+              <tr><td class="step">4</td><td>Agents spend</td><td class="small">Agent Pay</td></tr>
+              <tr><td class="step">5</td><td>Repay and rescore</td><td class="small">Devnet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="start">
+    <div class="closer">
+      <h2 class="display t-96">Start with your history</h2>
+      <p class="cta-row">
+        <a class="btn primary" href="#top">Get your score</a>
+        <a class="btn" href="#how">See how it works</a>
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="band foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <span class="brand">BEC</span>
+        <p class="small-on-ink">Devnet. Sample data.</p>
+      </div>
+      <div>
+        <p class="foot-h">Product</p>
+        <a href="#breakdown">Score</a>
+        <a href="#credit">Credit</a>
+        <a href="#agents">Agents</a>
+        <a href="#repay">Repay</a>
+      </div>
+      <div>
+        <p class="foot-h">Built on</p>
+        <span>XRPL</span>
+        <span>RLUSD</span>
+        <span>Mastercard Agent Pay</span>
+        <span>QuickNode</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
