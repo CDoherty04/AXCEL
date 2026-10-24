@@ -21,10 +21,16 @@ function usage() {
   console.error(`Usage: npm run qn-backlog -- <xrpl-address> [options]
 
 Options:
-  --max N          max transactions to fetch (default 500)
-  --page-size N    RPC page size (default 100)
-  --json           CreditHistorySnapshot JSON (for credit score / frontend)
+  --max, --limit N   max transactions to fetch (default 500); N may be --limit=5
+  --page-size N      RPC page size (default 100)
+  --json             CreditHistorySnapshot JSON (for credit score / frontend)
 `);
+}
+
+function splitFlagArg(raw) {
+  const eq = raw.indexOf("=");
+  if (eq === -1) return { flag: raw, inlineValue: undefined };
+  return { flag: raw.slice(0, eq), inlineValue: raw.slice(eq + 1) };
 }
 
 function parseArgs(argv) {
@@ -35,20 +41,25 @@ function parseArgs(argv) {
   const positional = [];
 
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg === "--max") {
-      maxTransactions = Number(argv[++i]);
-    } else if (arg === "--page-size") {
-      pageSize = Number(argv[++i]);
-    } else if (arg === "--json") {
+    const raw = argv[i];
+    const { flag, inlineValue } = splitFlagArg(raw);
+    const nextValue = () => {
+      if (inlineValue !== undefined && inlineValue !== "") return inlineValue;
+      return argv[++i];
+    };
+    if (flag === "--max" || flag === "--limit") {
+      maxTransactions = Number(nextValue());
+    } else if (flag === "--page-size") {
+      pageSize = Number(nextValue());
+    } else if (flag === "--json") {
       json = true;
-    } else if (arg === "--help" || arg === "-h") {
+    } else if (flag === "--help" || flag === "-h") {
       usage();
       process.exit(0);
-    } else if (arg.startsWith("-")) {
-      throw new Error(`Unknown flag: ${arg}`);
+    } else if (flag.startsWith("-")) {
+      throw new Error(`Unknown flag: ${raw}`);
     } else {
-      positional.push(arg);
+      positional.push(raw);
     }
   }
 
