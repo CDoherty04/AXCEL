@@ -31,6 +31,12 @@ export interface AgentRecord {
   viKey: KeyPairJwk
   /** Mock Know-Your-Agent registration id (Mastercard Acceptance Framework). */
   mastercardAgentId: string
+  /**
+   * Spending account the agent pays from. It is funded just in time for each purchase and holds ~0 between
+   * purchases, so a stolen agent key can reach almost nothing. The agent is delegated Payment on this account,
+   * never on the user's main account.
+   */
+  pot: { account: string; seed: string }
   mode: 'immediate' | 'autonomous'
   status: 'active' | 'revoked'
   /** Per-purchase cap, USD cents (the L2 payment.amount max). */
@@ -63,6 +69,33 @@ export interface MerchantRecord {
   /** Devnet account that receives settlement. */
   account: string
   seed: string
+}
+
+export type PendingState = 'validated' | 'authorized' | 'funded' | 'paid' | 'declined' | 'stranded'
+
+/**
+ * Write-ahead record of a purchase in flight. Created before the network is asked to authorize, advanced one
+ * step at a time, and resumed by the reconciler, so a crash between "network redeemed" and "XRPL anchored"
+ * never loses or repeats the redemption.
+ */
+export interface PendingPurchase {
+  id: string
+  agentId: string
+  viHash: string
+  mode: 'immediate' | 'autonomous'
+  amountCents: number
+  merchantId: string
+  merchantAccount: string
+  chain: { l1: string; l2: string; l3a?: string; l2Payment?: string }
+  state: PendingState
+  authorizationId?: string
+  evidence?: { network: string; channelId?: string; redeemTx?: string; claimId?: string; rlusd?: string }
+  fundTx?: string
+  payTx?: string
+  attempts: number
+  error?: string
+  createdAt: number
+  updatedAt: number
 }
 
 export interface PurchaseRecord {
@@ -99,6 +132,7 @@ export interface UserRecord {
   events: ScoreEvent[]
   loans: LoanRecord[]
   purchases: PurchaseRecord[]
+  pending: PendingPurchase[]
   /** Merchants flagged as self-dealing by the anti-gaming resolver. */
   excludedMerchants: string[]
   challenge?: { message: string; expiresAt: number }
@@ -120,6 +154,23 @@ export class Store {
 
   constructor(private readonly path: string) {
     this.state = { users: {}, merchants: {}, ...(existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as Partial<State>) : {}) }
+    this.migrate()
+  }
+
+  /**
+   * State written before spending accounts existed: agents had a delegation on the user's main account and no pot.
+   * Retire them (they cannot settle any more) and give every user a pending list.
+   */
+  private migrate(): void {
+    for (const u of Object.values(this.state.users)) {
+      u.pending ??= []
+      for (const a of Object.values(u.agents)) {
+        if (!a.pot && a.status === 'active') {
+          a.status = 'revoked'
+          a.revokedAt ??= Math.floor(Date.now() / 1000)
+        }
+      }
+    }
   }
 
   save(): void {

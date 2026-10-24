@@ -100,8 +100,8 @@ The score and the loan belong to the user. A new agent starts with the user's ti
 1. **Cold start.** The user proves control of their Mainnet account by signing a challenge. The service reads its history through QuickNode's archive endpoint (`account_tx`), plus any Devnet history from the public endpoint, and computes a starting score.
 2. **Tier.** The service issues a CreditTier credential to the user's account with `CredentialCreate`, and the user accepts it. Holding the credential places the user in the matching Permissioned Domain.
 3. **Borrow.** The private vault lends only to that domain. The loan broker and the user co-sign a `LoanSet` sized to the tier's limit, and RLUSD lands in the user's account.
-4. **Link agents.** Each agent gets its own account, listed under the user's DID, and a `DelegateSet` from the user granting only Payment permission on the user's account. Delegation limits which actions an agent can take, not how much it spends. Per-agent caps come from each agent's L2 mandate and Agentic Token limit.
-5. **Spend.** An agent builds an L3 order inside its mandate and pays through Agent Pay. Settlement is a delegated RLUSD Payment from the user's account, with `sha256(VI chain)` and the agent's DID in Memos. The service checks that total spend across all agents stays under the credit line.
+4. **Link agents.** Each agent gets its own key account, listed under the user's DID, plus a **spending account** (pot). The pot holds an `AGENT_PAYER` credential and a `DelegateSet` granting the agent only Payment on the pot, never on the user's main account. Delegation limits which actions an agent can take, not how much it spends, so the pot is funded just in time and holds about nothing between purchases. Per-agent caps come from each agent's L2 mandate and Agentic Token limit.
+5. **Spend.** An agent builds an L3 order inside its mandate and pays through Agent Pay. The service moves exactly the purchase amount from the user's account into the agent's pot, and the agent's delegated RLUSD Payment from the pot settles it, with `sha256(VI chain)` and the agent's DID in Memos. The service checks that total spend across all agents stays under the credit line.
 6. **Repay.** The user pays installments with `LoanPay` or pays the balance off early; create the loan with overpayment allowed so early payoff works. Each repayment is followed by a Batch that atomically swaps the tier credential (LoanPay itself cannot be batched on current Devnet).
 7. **Rescore.** Repayments and every agent's verified purchases update the single user score. When the tier rises, the next loan's limit rises for all agents.
 
@@ -261,10 +261,10 @@ TypeScript service in `src/`, Python bridge to the pinned VI reference in `vi_br
 | Anti-gaming | `src/scoring/antiGaming.ts` | Excludes merchants that are the user's own accounts, share a funding source, or have a DID controlled by the user |
 | Lending | `src/credit/infra.ts`, `loans.ts` | Test-dollar issuer, three tier domains, private closed-ended vault, loan broker with first-loss cover, `LoanSet`, `LoanPay`, atomic credential refresh |
 | Credentials | `src/credit/tierCredential.ts` | Tier credential swap (30-day expiry) |
-| Delegation | `src/credit/delegation.ts` | `DelegateSet` with `Payment` only; revoke with an empty permission list |
+| Delegation | `src/credit/delegation.ts`, `pots.ts` | `DelegateSet` with `Payment` only, on a per-agent spending account; revoke with an empty permission list; payer credential and merchant `DepositPreauth` |
 | Orchestration | `src/service.ts` | Users, linking, KYA, cold start, tier sync, borrow, agents, purchase settlement, repayment, late sweep, dashboard profile |
 | Feed | `src/feed.ts` | Account subscription; folds in plain payments, ignores VI-memo payments with no settled chain |
-| API | `src/api/server.ts` | REST over the service (demo custody, no auth) |
+| API | `src/api/server.ts`, `src/api/routes/*` | REST on the shared router over the service (demo custody, no auth) |
 
 ### Verified on Devnet (scripts/demo.ts)
 
@@ -280,8 +280,19 @@ Cold start scores 614 (tier B), a 250 loan is drawn, an Immediate and an Autonom
 - **Early payoff** uses `tfLoanFullPayment` with the current `TotalValueOutstanding`; the user needs funds beyond the borrowed balance they have left (the demo tops up from the issuer).
 - **Closed-ended vault:** the redemption date is 180 days after creation, so a long-lived deployment needs a new vault after that.
 
+### Hardening: spending accounts, settlement state machine, live guard
+
+- **Spending accounts (`src/credit/pots.ts`).** A delegate on the user's main account can reach everything in it. Each agent therefore pays from its own pot: funded just in time with exactly the purchase amount, delegated Payment-only to the agent key, and holding an `AGENT_PAYER` credential. Merchants set `DepositAuth` plus a credential-based `DepositPreauth`, so they accept funds only from credential holders. Verified on Devnet: no credential gives `tecNO_PERMISSION`, a deleted credential gives `tecBAD_CREDENTIALS`. **Limit of this defense:** it protects merchants and gives revocation a second lever; it does not stop a thief sending the pot's contents to an arbitrary address, so the real bound is the pot balance (about 0 between purchases) plus the guard below.
+- **Revocation** removes the pot delegation, deletes the payer credential, sweeps the pot back to the user, drops the Mastercard registration and marks any in-flight purchase of that agent stranded.
+- **Settlement state machine (`src/service.ts`).** A purchase is a write-ahead record: `validated -> authorized -> funded -> paid`, saved before each step. The network is asked once per chain hash (a retry resumes and never redeems a second voucher; the AP4M authorizer is idempotent per hash and re-reports an unrecorded redemption without redeeming again). Payment checks the pot's recent history for the chain hash first and refuses to pay when the pot is short, so a lost response never causes a double payment. Failures after authorization return `202 pending`; `reconcile()` (every 60 s in the server, or `POST /api/v1/payments/reconcile`) finishes them; after 5 failed attempts a purchase is `stranded` for review. Only a paid purchase scores. Settlement is serialized per agent.
+- **Live guard (`src/feed.ts`, `src/settlement.ts`).** The feed watches every spending account. A delegated payment out of a pot must match an approved purchase (same chain hash, destination and amount); anything else revokes the agent immediately and records an alert.
+- **Borrow on demand (opt-in).** `autoBorrowChunk` in the service dependencies draws `max(shortfall, chunk)` when the user balance is short, instead of the whole line up front.
+- **API.** The credit-layer service now sits behind the shared router (`src/api/routes/`, `npm run api`, paths under `/api/v1`); the Express server is gone. Routes answer 503 until the Devnet bootstrap finishes. `scripts/resilience.ts` is the live check for the guard and for crash recovery.
+
 ### Known gaps
 
+- The teammates' original `CreditSystem` (`system.ts`, `score.ts`, `policy.ts`, `originator.ts`) is no longer used by any route. It is left in place pending its owner's agreement; the credit-layer scoring engine is the source of truth.
+- Authorization idempotency is in memory: a process restart between "redeemed" and "recorded" can re-redeem. Persisting the redemption would close it.
 - Keys are custodied by the service for the demo. Production needs client-side signing and user authentication on the API.
 - The self-dealing resolver reads funding sources from the ledger it is wired to (Devnet); Mainnet merchants are only checked against the user's own accounts unless a Mainnet resolver is added.
 - Loan default handling (`LoanManage`) and the Mastercard dispute feed are not built; disputes can be added as `dispute` score events.

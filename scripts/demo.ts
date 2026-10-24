@@ -62,6 +62,7 @@ try {
     merchantIds: [api.id, cloud.id], items: [{ id: 'credits', title: 'API credits' }],
   })
   show('agents', [shopper.id, buyer.id])
+  show('spending accounts (agents pay from these, never from the user account)', [shopper.pot.account, buyer.pot.account])
 
   say('4. Spend')
   const p1 = await service.purchase(shopper.id, { merchantId: shop.id, item: { id: 'jacket', title: 'Rain jacket' }, amountCents: 3500 })
@@ -99,6 +100,16 @@ try {
   })
   const p4 = await service.purchase(third.id, { merchantId: cloud.id, item: { id: 'credits', title: 'API credits' }, amountCents: 15000 })
   show('third agent, first purchase', { tx: p4.txHash, amount: p4.amount, score: p4.score })
+
+  say('8. Revoke: delegation removed, payer credential deleted, pot swept')
+  show('revoke', await service.revokeAgent(buyer.id))
+  try {
+    await service.purchase(buyer.id, { merchantId: api.id, item: { id: 'credits', title: 'API credits' }, amountCents: 500 })
+    throw new Error('expected a refusal')
+  } catch (e) {
+    if (!(e instanceof HttpError)) throw e
+    show('after revoke', e.message)
+  }
 
   say('Dashboard')
   const prof = await service.profile(user.id)

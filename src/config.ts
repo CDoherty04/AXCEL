@@ -45,6 +45,8 @@ export const unhex = (h: string): string => Buffer.from(h, 'hex').toString('utf8
 
 export const credentialTypes = {
   kya: 'KYA_VERIFIED',
+  /** Held by an agent's spending account; merchants accept payments only from holders. */
+  agentPayer: 'AGENT_PAYER',
   tier: { A: 'CREDIT_TIER_A', B: 'CREDIT_TIER_B', C: 'CREDIT_TIER_C' } as Record<Tier, string>,
 }
 
