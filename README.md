@@ -1,5 +1,5 @@
 # AXCEL
-Agent XRPL Credit Exchange Layer
+Agentic XRPL Credit Exchange Layer
 
 ## QuickNode Mainnet Backlog
 
