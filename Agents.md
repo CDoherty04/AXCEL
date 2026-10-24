@@ -62,6 +62,25 @@ npm run qn-backlog -- rAddress… --json --max 1000
 
 Address is **required** (no default).
 
+## REST API (`src/api/`)
+
+```bash
+npm run api
+curl -s "http://127.0.0.1:3000/api/v1/credit-history/rAddress…?limit=50"
+curl -s http://127.0.0.1:3000/api/v1   # route catalog
+```
+
+Template layout for other owners:
+
+| File | Owner | Status |
+| --- | --- | --- |
+| `routes/credit-history.ts` | Charlie | live — same snapshot as CLI |
+| `routes/kya.ts` | Caleb | stub |
+| `routes/lending.ts` | Will | stub |
+| `routes/payments.ts` | Mastercard | stub |
+
+Add handlers in the matching `routes/*.ts` and register in `routes/index.ts`.
+
 ## RPC
 
 Uses rippled JSON-RPC `account_tx` via `lib/xrpl-rpc.mjs`. Newest-first pagination via `marker` until `maxTransactions` or history exhausted.
