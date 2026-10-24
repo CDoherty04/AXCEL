@@ -55,6 +55,7 @@
   function call(form, req) {
     return fetch(BASE + req.path, {
       method: req.method,
+      cache: "no-store",
       headers: req.body ? { "Content-Type": "application/json" } : {},
       body: req.body ? JSON.stringify(req.body) : undefined
     }).then(function (res) {
@@ -112,7 +113,11 @@
       var btn = form.querySelector("button[type=submit]");
       out(form).textContent = "";
       if (id === "f-repay" && !userId) { print(form, "error: add an agent first.", "t-err"); return; }
+      var label = btn.textContent;
       btn.disabled = true;
+      btn.textContent = "Waiting…";
+      form.setAttribute("aria-busy", "true");
+      print(form, "# waiting…", "t-wait");
       var reqs = specs[id](form), i = 0, last;
       // Run the calls in order. Creating the profile sets USER_ID, so rebuild the rest with it filled in.
       function next() {
@@ -132,7 +137,13 @@
       next()
         .then(function () { print(form, "# " + done[id](form, last), "t-ok"); })
         .catch(function (err) { print(form, "error: " + err.message, "t-err"); })
-        .then(function () { btn.disabled = false; renderAll(); });
+        .then(function () {
+          form.querySelectorAll(".result .t-wait").forEach(function (el) { el.remove(); });
+          btn.disabled = false;
+          btn.textContent = label;
+          form.removeAttribute("aria-busy");
+          renderAll();
+        });
     });
   });
 

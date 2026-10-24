@@ -186,7 +186,11 @@ tr.refused td { background: var(--brick-tint); }
 .mark { display: inline-block; width: 12px; height: 12px; margin-right: 8px; vertical-align: -1px; border: 2px solid var(--ink); }
 .mark.due { background: var(--orange); }
 .mark.ok { background: var(--ink); }
-.mark.wait { background: var(--page); }
+.mark.wait { background: var(--page); animation: pulse-wait 1s ease-in-out infinite; }
+@keyframes pulse-wait { 50% { opacity: .35; } }
+.is-loading .display { animation: pulse-wait 1s ease-in-out infinite; }
+.t-wait { color: var(--periwinkle); animation: pulse-wait 1s ease-in-out infinite; }
+.term[aria-busy] .btn[disabled]::before { content: "… "; }
 .mark.bad { background: var(--brick); border-color: var(--brick); }
 table.steps { min-width: 0; }
 table.detail td { white-space: normal; }
@@ -314,6 +318,7 @@ tr.new td { animation: rowin .35s ease; }
   .js .reveal { opacity: 1; transform: none; }
   .about-menu { animation: none; }
   .ribbon-track { animation: none; }
+  .mark.wait, .is-loading .display, .t-wait { animation: none; }
 }
 
 /* Fleet table: fits the column instead of scrolling sideways. */

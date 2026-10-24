@@ -21,16 +21,25 @@
     form.querySelector(".result").appendChild(line);
   }
 
+  function clearWait(form) {
+    form.querySelectorAll(".result .t-wait").forEach(function (el) { el.remove(); });
+  }
+
   function call(base, form, req) {
     return fetch(base + req.path, {
       method: req.method,
+      cache: "no-store",
       headers: req.body ? { "Content-Type": "application/json" } : {},
       body: req.body ? JSON.stringify(req.body) : undefined
     }).then(function (res) {
       return res.text().then(function (txt) {
+        clearWait(form);
         var data = {};
         try { data = txt ? JSON.parse(txt) : {}; } catch (e) {}
         print(form, "HTTP " + res.status, res.ok ? "t-ok" : "t-err");
+        if (!txt && (res.status === 304 || res.status === 200)) {
+          throw new Error("empty response (cached). Try again.");
+        }
         if (txt) {
           // Long replies (a 500-transaction history) are cut down; the page renders the full data elsewhere.
           var lines = JSON.stringify(data, null, 2).split("\n");
@@ -42,6 +51,7 @@
         return data;
       });
     }, function () {
+      clearWait(form);
       var host = base.replace(/^https?:\/\//, "").split("/")[0].split(":");
       print(form, "curl: (7) Failed to connect to " + host[0] + " port " + (host[1] || 80) + ": Connection refused", "t-err");
       throw new Error("That service isn't running yet.");
@@ -64,11 +74,16 @@
       var problem = opts.check && opts.check(form);
       if (problem) { print(form, "error: " + problem, "t-err"); return; }
       var btn = form.querySelector("button[type=submit]");
+      var label = btn.textContent;
       btn.disabled = true;
+      btn.textContent = "Waiting…";
+      form.setAttribute("aria-busy", "true");
+      if (opts.busy) opts.busy(form, true);
       var reqs = opts.spec(form), last;
       reqs.reduce(function (p, req) {
         return p.then(function () {
           print(form, "$ curl -X " + req.method + " " + opts.base + req.path, "t-dim");
+          print(form, "# waiting…", "t-wait");
           return call(opts.base, form, req).then(function (r) { last = r; });
         });
       }, Promise.resolve())
@@ -79,7 +94,14 @@
           });
         })
         .catch(function (err) { print(form, "error: " + err.message, "t-err"); })
-        .then(function () { btn.disabled = false; render(); });
+        .then(function () {
+          clearWait(form);
+          btn.disabled = false;
+          btn.textContent = label;
+          form.removeAttribute("aria-busy");
+          if (opts.busy) opts.busy(form, false);
+          render();
+        });
     });
     render();
     return { render: render };

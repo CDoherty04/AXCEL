@@ -33,9 +33,9 @@ export type CreditHistorySummary = {
 
 export type CreditHistorySnapshot = {
   account: string;
-  network: "mainnet" | "xrpl-evm";
+  network: "mainnet" | "ethereum";
   fetchedAt: string;
-  source: "quicknode" | "xrpl-evm";
+  source: "quicknode" | "blockscout";
   summary: CreditHistorySummary;
   transactions: CreditTransaction[];
   partial: boolean;

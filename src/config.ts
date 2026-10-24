@@ -27,13 +27,15 @@ export const networks: Record<NetworkName, NetworkConfig> = {
 export const DAY = 86_400
 export const RIPPLE_EPOCH_OFFSET = 946_684_800
 
-export type Tier = 'A' | 'B' | 'C'
+export type Tier = 'A' | 'B' | 'C' | 'D' | 'F'
 
 /** Credit line per tier, in test dollars (stand-in for RLUSD). Covers all of a user's agents together. */
 export const tiers: Record<Tier, { minScore: number; creditLine: number }> = {
-  A: { minScore: 450, creditLine: 1000 },
-  B: { minScore: 380, creditLine: 100 },
-  C: { minScore: 360, creditLine: 10 },
+  A: { minScore: 700, creditLine: 10000 },
+  B: { minScore: 600, creditLine: 1000 },
+  C: { minScore: 400, creditLine: 100 },
+  D: { minScore: 360, creditLine: 10 },
+  F: { minScore: 0, creditLine: 1 },
 }
 
 export const CREDENTIAL_TTL_SECONDS = 30 * DAY

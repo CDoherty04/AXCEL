@@ -29,3 +29,7 @@ export function notFound(message: string): HttpError {
 export function notImplemented(message: string): HttpError {
   return new HttpError(501, message, { code: "not_implemented" });
 }
+
+export function serviceUnavailable(message: string, details?: unknown): HttpError {
+  return new HttpError(503, message, { code: "service_unavailable", details });
+}

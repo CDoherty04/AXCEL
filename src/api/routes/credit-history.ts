@@ -1,9 +1,28 @@
 import { assertScoreAddress, fetchCreditHistory } from "../../lib/quicknode.js";
 import { computeScore } from "../../scoring/engine.js";
 import { snapshotToHistory } from "../../scoring/quicknodeHistory.js";
-import { badRequest } from "../errors.js";
+import { badRequest, serviceUnavailable } from "../errors.js";
 import { parsePositiveInt, sendError, sendJson } from "../http.js";
-import type { Route } from "../router.js";
+import type { Route, RouteContext } from "../router.js";
+
+function isRateLimited(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = "code" in err ? String(err.code) : "";
+  const message = err instanceof Error ? err.message : "";
+  return code === "rate_limited" || /HTTP 429|\b429\b|too many requests|rate.?limit/i.test(message);
+}
+
+function sendHistoryError(res: RouteContext["res"], err: unknown): void {
+  if (err instanceof Error && err.message.startsWith("Invalid XRPL")) {
+    sendError(res, badRequest(err.message));
+    return;
+  }
+  if (isRateLimited(err)) {
+    sendError(res, serviceUnavailable("QuickNode is rate-limiting this address. Retry in a few seconds."));
+    return;
+  }
+  sendError(res, err);
+}
 
 export const creditHistoryRoutes: Route[] = [
   {
@@ -24,11 +43,7 @@ export const creditHistoryRoutes: Route[] = [
 
         sendJson(ctx.res, 200, snapshot);
       } catch (err) {
-        if (err instanceof Error && err.message.startsWith("Invalid XRPL")) {
-          sendError(ctx.res, badRequest(err.message));
-          return;
-        }
-        sendError(ctx.res, err);
+        sendHistoryError(ctx.res, err);
       }
     },
   },
@@ -71,11 +86,7 @@ export const creditHistoryRoutes: Route[] = [
           truncated: history.truncated,
         });
       } catch (err) {
-        if (err instanceof Error && err.message.startsWith("Invalid XRPL")) {
-          sendError(ctx.res, badRequest(err.message));
-          return;
-        }
-        sendError(ctx.res, err);
+        sendHistoryError(ctx.res, err);
       }
     },
   },

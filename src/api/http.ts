@@ -19,6 +19,8 @@ export function sendJson(res: ServerResponse, status: number, body: unknown): vo
   applyCors(res);
   res.statusCode = status;
   res.setHeader("Content-Type", JSON_CONTENT_TYPE);
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
   res.end(JSON.stringify(body));
 }
 

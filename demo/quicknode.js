@@ -39,6 +39,25 @@
     form: $("f-history"), base: API,
     spec: function () { return [{ method: "GET", path: "/credit-history/" + (account() || "$ADDRESS"), note: "Full history. The table shows the latest 5." }]; },
     check: function () { return account() ? null : "enter an address or connect your wallet."; },
+    busy: function (f, on) {
+      $("history-out").hidden = false;
+      $("history-out").classList.toggle("is-loading", on);
+      if (on) {
+        if (!$("history-rows").getAttribute("data-loaded")) {
+          $("hs-count").textContent = "…";
+          $("hs-sent").textContent = "…";
+          $("hs-peers").textContent = "…";
+          $("hs-first").textContent = "…";
+          $("history-rows").innerHTML = '<tr><td colspan="6" class="small">Reading your history. This can take a few seconds…</td></tr>';
+        }
+        $("history-more").textContent = "Reading your history. This can take a few seconds…";
+      } else {
+        if (/^Reading your history/.test($("history-more").textContent)) $("history-more").textContent = "";
+        if (!$("history-rows").getAttribute("data-loaded")) {
+          $("history-rows").innerHTML = '<tr><td colspan="6" class="small">Couldn\'t read history yet. See the terminal above.</td></tr>';
+        }
+      }
+    },
     done: function (f, snap) {
       var s = snap.summary || {};
       $("hs-count").textContent = (s.transactionCount || 0).toLocaleString();
@@ -46,6 +65,7 @@
       $("hs-peers").textContent = (s.uniqueCounterparties || 0).toLocaleString();
       $("hs-first").textContent = s.firstActivityAt ? new Date(s.firstActivityAt).toLocaleDateString([], { month: "short", year: "numeric" }) : "—";
       var txs = snap.transactions || [];
+      $("history-rows").setAttribute("data-loaded", "1");
       $("history-rows").innerHTML = txs.length ? txs.slice(0, MAX_ROWS).map(function (t) {
         var ok = t.result === "tesSUCCESS";
         return "<tr" + (ok ? "" : ' class="refused"') + "><td>" + date(t.timestamp) + "</td><td>" + esc(t.type) + "</td><td>" +
@@ -55,8 +75,7 @@
       $("history-more").textContent = txs.length > MAX_ROWS ? "Showing the latest " + MAX_ROWS + " of " + txs.length + ". The score uses all " + txs.length + "." : "";
       $("history-out").hidden = false;
       return (s.transactionCount || 0) + " transactions read. Calculate the score below.";
-    },
-    after: function () { $("f-preview").requestSubmit(); }
+    }
   });
 
   // ---- score preview ----
@@ -76,6 +95,17 @@
       return [{ method: "GET", path: "/credit-history/" + (account() || "$ADDRESS") + "/score", note: "Scored from the full history" }];
     },
     check: function () { return account() ? null : "read your history first."; },
+    busy: function (f, on) {
+      $("card-note").hidden = false;
+      if (on) {
+        $("card-note").dataset.prev = $("card-note").textContent;
+        $("card-note").textContent = "Calculating your score…";
+      } else if ($("card-note").textContent === "Calculating your score…") {
+        $("card-note").textContent = $("card-note").dataset.prev || "";
+        $("card-note").hidden = !$("card-note").textContent;
+      }
+      document.querySelector(".hero").classList.toggle("is-loading", on);
+    },
     done: function (f, r) {
       card(r, "Preview from your Mainnet history. Linking your account and verifying your identity in Part 2 issues the tier on-ledger.");
       save("axcel.preview", { account: account(), score: r.score, tier: r.tier });
@@ -92,14 +122,11 @@
   $("continue").addEventListener("click", function () { openPart2(true); });
   if (load("axcel.continued") || location.hash && location.hash !== "#top" && $("part2").querySelector(location.hash)) openPart2(false);
 
-  // Connecting a wallet reads its history straight away.
   document.addEventListener("axcel:wallet", function (e) {
     showWallet(e.detail);
     if ($("history-out").hidden) card(null, e.detail ? "Read your history to calculate your score." : "Connect your wallet to see your score.");
-    if (e.detail && e.detail.address) $("f-history").requestSubmit();
   });
   var w0 = load("axcel.wallet");
   showWallet(w0);
   card(null, w0 ? "Read your history to calculate your score." : "Connect your wallet to see your score.");
-  if (w0 && w0.address) $("f-history").requestSubmit();
 })();
