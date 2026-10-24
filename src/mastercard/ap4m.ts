@@ -1,19 +1,32 @@
+import { createRequire } from 'node:module'
+import { ethers } from 'ethers'
 import type {
-  AgentRegistry, AuthorizationRequest, AuthorizationResult, NetworkAuthorizer,
+  AgentRegistry, AuthorizationRequest, AuthorizationResult, NetworkAuthorizer, SettlementResult,
 } from './agentPay.js'
 
 /**
- * Real Mastercard Agent Pay for Machines (AP4M) adapter.
+ * Mastercard Agent Pay for Machines (hackathon service at https://hackathon.ap4m.build), built on the SDK in
+ * integrations/ap4m/. The service runs on XRPL EVM Testnet (chain 1449000), not on native XRPL Devnet:
  *
- * STATUS: scaffold. AP4M opened Early Access on 2026-10-20 (buyer- and seller-side APIs, toolkit, sandbox), but its
- * documentation is not public: developer.mastercard.com/mastercard-agent-pay and the Developers MCP both return 404
- * for it. Request paths, the auth scheme and the request/response field names below are therefore PLACEHOLDERS,
- * isolated in this one file so they can be corrected against the Early Access docs without touching the service.
- * Nothing here talks to Mastercard until MASTERCARD_MODE=ap4m and the environment is filled in.
+ *   sign in (EIP-191 challenge) -> open a payment Channel with an RLUSD cap -> per purchase, sign an EIP-712
+ *   cumulative voucher and call redeemVoucher() on the PaymentLedger contract -> POST record-redemption ->
+ *   settle (RLUSD released to the merchant payout wallet, receipt) -> close the channel.
  *
- * Known from public reporting: AP4M builds on x402 (HTTP 402 -> signed payment voucher -> merchant verifies ->
- * vouchers may be batched and redeemed later), with stablecoin rails including XRPL/RLUSD named by Mastercard.
+ * Mapping to the credit layer: the channel cap is the agent spending limit the credit tier raises (the Agentic
+ * Token analogue); one channel serves all of a user's agents, like the single credit line. The native XRPL
+ * Devnet Payment that carries the Verifiable Intent hash stays the anchor the score reads; the AP4M claim id is
+ * added to its Memos so both legs are linked.
  */
+
+export interface Ap4mSdk {
+  signIn(apiUrl: string, teamName: string, wallet: ethers.Wallet): Promise<{ token: string; expiresInSeconds?: number; team?: Record<string, unknown> }>
+  requestChannel(apiUrl: string, token: string, wallet: ethers.Wallet, opts: { capRlusd: string; rpcUrl: string; merchantId?: string }): Promise<{ channel_id: string }>
+  listChannels(apiUrl: string, token: string): Promise<{ channel_id: string; channel_status: string }[]>
+  getChannelState(provider: ethers.Provider, ledger: string, channelId: string): Promise<{ cap: bigint; redeemed: bigint; validBefore: bigint; status: number }>
+  redeemVoucher(wallet: ethers.Wallet, ledger: string, rpcUrl: string, channelId: string, cumulative: bigint): Promise<{ claimId: string | null; txHash: string }>
+  settle(apiUrl: string, token: string, channelId: string): Promise<{ settlement_tx?: string; payout_tx?: string; receipt_url?: string }>
+  closeChannel(apiUrl: string, token: string, wallet: ethers.Wallet, channelId: string): Promise<{ tx_hash?: string }>
+}
 
 export class Ap4mNotConfigured extends Error {
   constructor(missing: string[]) {
@@ -22,115 +35,191 @@ export class Ap4mNotConfigured extends Error {
 }
 
 export interface Ap4mConfig {
-  baseUrl: string
-  /** Credential issued with Early Access. */
-  apiKey: string
-  /** Endpoint paths relative to baseUrl. Confirm against the Early Access docs. */
-  paths: { registerAgent: string; revokeAgent: string; authorize: string }
-  /** Settlement network label to request (the x402 `network` field), for example the XRPL network id. */
-  settlementNetwork: string
-  /** Asset to settle in, for example RLUSD. */
-  settlementAsset: string
+  apiUrl: string
+  teamName: string
+  agentPrivateKey: string
+  /** Reuse this channel; otherwise an open one is found or a new one is requested. */
+  channelId?: string
+  /** RLUSD cap when a channel has to be opened. */
+  channelCapRlusd: string
+  /** Optional merchant id to route the channel to; omit for the team's registered payout wallet. */
+  merchantId?: string
+  /**
+   * RLUSD paid per credit-layer dollar. The demo borrows test dollars (hundreds); a hackathon team has a 20 RLUSD
+   * allocation, so 0.01 turns a 35-dollar purchase into 0.35 RLUSD. Use 1 when real amounts fit the allocation.
+   */
+  amountScale: number
 }
 
 export function ap4mConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Ap4mConfig {
-  const need = ['AP4M_BASE_URL', 'AP4M_API_KEY', 'AP4M_PATH_REGISTER_AGENT', 'AP4M_PATH_REVOKE_AGENT', 'AP4M_PATH_AUTHORIZE', 'AP4M_SETTLEMENT_NETWORK']
-  const missing = need.filter((k) => !env[k])
+  const missing = ['TEAM_NAME', 'AGENT_PRIVATE_KEY'].filter((k) => !env[k])
   if (missing.length) throw new Ap4mNotConfigured(missing)
+  const key = env.AGENT_PRIVATE_KEY!.trim()
   return {
-    baseUrl: env.AP4M_BASE_URL!.replace(/\/$/, ''),
-    apiKey: env.AP4M_API_KEY!,
-    paths: { registerAgent: env.AP4M_PATH_REGISTER_AGENT!, revokeAgent: env.AP4M_PATH_REVOKE_AGENT!, authorize: env.AP4M_PATH_AUTHORIZE! },
-    settlementNetwork: env.AP4M_SETTLEMENT_NETWORK!,
-    settlementAsset: env.AP4M_SETTLEMENT_ASSET ?? 'RLUSD',
+    apiUrl: (env.AP4M_API_URL ?? 'https://hackathon.ap4m.build').replace(/\/$/, ''),
+    teamName: env.TEAM_NAME!,
+    agentPrivateKey: key.startsWith('0x') ? key : `0x${key}`,
+    channelId: env.CHANNEL_ID || undefined,
+    channelCapRlusd: env.CHANNEL_CAP ?? '5',
+    merchantId: env.AP4M_MERCHANT_ID || undefined,
+    amountScale: Number(env.AP4M_AMOUNT_SCALE ?? '0.01'),
   }
 }
 
-/** Adds auth headers to a request. Replace if Early Access uses OAuth1.0a (as other Mastercard APIs do) or mTLS. */
-export type RequestSigner = (req: { method: string; url: string; body: string }) => Record<string, string> | Promise<Record<string, string>>
+const RLUSD_DECIMALS = 18
 
-export const bearerSigner = (apiKey: string): RequestSigner => () => ({ authorization: `Bearer ${apiKey}` })
+/** Shared connection to AP4M: session token, service config, EVM provider and the team's channel. */
+export class Ap4mSession {
+  readonly wallet: ethers.Wallet
+  private token?: { value: string; expiresAt: number }
+  private config?: { rpcUrl: string; paymentLedger: string; chainId: number }
+  private channelId?: string
+  private team?: Record<string, unknown>
+  readonly sdk: Ap4mSdk
 
-class Ap4mHttp {
   constructor(
     readonly cfg: Ap4mConfig,
-    private readonly sign: RequestSigner = bearerSigner(cfg.apiKey),
+    sdk?: Ap4mSdk,
     private readonly fetchFn: typeof fetch = fetch,
-  ) {}
+  ) {
+    this.wallet = new ethers.Wallet(cfg.agentPrivateKey)
+    this.sdk = sdk ?? (createRequire(import.meta.url)('../../integrations/ap4m/ap4m-hackathon-sdk.cjs') as Ap4mSdk)
+    this.channelId = cfg.channelId
+  }
 
-  async post<T>(path: string, payload: unknown): Promise<{ status: number; body: T }> {
-    const url = `${this.cfg.baseUrl}${path}`
-    const body = JSON.stringify(payload)
-    const res = await this.fetchFn(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json', ...(await this.sign({ method: 'POST', url, body })) },
-      body,
-    })
-    const text = await res.text()
-    let parsed: unknown = {}
-    try {
-      parsed = text ? JSON.parse(text) : {}
-    } catch {
-      parsed = { raw: text }
+  async login(): Promise<string> {
+    if (this.token && this.token.expiresAt > Date.now() + 30_000) return this.token.value
+    const s = await this.sdk.signIn(this.cfg.apiUrl, this.cfg.teamName, this.wallet)
+    this.token = { value: s.token, expiresAt: Date.now() + (s.expiresInSeconds ?? 600) * 1000 }
+    this.team = s.team
+    return s.token
+  }
+
+  async serviceConfig() {
+    if (!this.config) {
+      const r = await this.fetchFn(`${this.cfg.apiUrl}/public/config`)
+      const j = (await r.json()) as { network: { rpcUrl: string; chainId: number }; contracts: { paymentLedger: string } }
+      if (!r.ok) throw new Error(`AP4M /public/config failed (${r.status})`)
+      this.config = { rpcUrl: j.network.rpcUrl, paymentLedger: j.contracts.paymentLedger, chainId: j.network.chainId }
     }
-    return { status: res.status, body: parsed as T }
+    return this.config
+  }
+
+  async provider(): Promise<ethers.JsonRpcProvider> {
+    return new ethers.JsonRpcProvider((await this.serviceConfig()).rpcUrl)
+  }
+
+  /** The team record from sign-in (agent_id, merchant_id, allocation). */
+  async teamInfo(): Promise<Record<string, unknown>> {
+    await this.login()
+    return this.team ?? {}
+  }
+
+  /** Reuse the configured or an already-open channel, else open one with the configured cap. */
+  async ensureChannel(): Promise<string> {
+    if (this.channelId) return this.channelId
+    const token = await this.login()
+    const open = (await this.sdk.listChannels(this.cfg.apiUrl, token)).find((c) => c.channel_status === 'open')
+    if (open) return (this.channelId = open.channel_id)
+    const { rpcUrl } = await this.serviceConfig()
+    const ch = await this.sdk.requestChannel(this.cfg.apiUrl, token, this.wallet.connect(await this.provider()), {
+      capRlusd: this.cfg.channelCapRlusd, rpcUrl, merchantId: this.cfg.merchantId,
+    })
+    return (this.channelId = ch.channel_id)
+  }
+
+  forgetChannel(): void {
+    this.channelId = undefined
+  }
+
+  async recordRedemption(txHash: string): Promise<{ claim_id?: string }> {
+    const token = await this.login()
+    const r = await this.fetchFn(`${this.cfg.apiUrl}/public/participant/record-redemption`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ tx_hash: txHash }),
+    })
+    const j = (await r.json()) as { claim_id?: string; error?: string }
+    if (!r.ok) throw new Error(`AP4M record-redemption failed (${r.status}): ${j.error ?? JSON.stringify(j)}`)
+    return j
   }
 }
 
-/** Know Your Agent: register the agent (and its owner's DID) with Mastercard so its purchases are accepted. */
+/** Know Your Agent: the AP4M team's registered agent identity backs every agent of the user. */
 export class Ap4mAgentRegistry implements AgentRegistry {
-  private readonly http: Ap4mHttp
+  private readonly revoked = new Set<string>()
 
-  constructor(cfg: Ap4mConfig, sign?: RequestSigner, fetchFn?: typeof fetch) {
-    this.http = new Ap4mHttp(cfg, sign, fetchFn)
+  constructor(private readonly session: Ap4mSession) {}
+
+  async register(input: { ownerDid: string; agentDid: string }): Promise<{ mastercardAgentId: string }> {
+    const team = await this.session.teamInfo()
+    const agentId = String(team.agent_id ?? this.session.wallet.address)
+    // Each credit-layer agent gets its own handle under the one registered AP4M agent, so revoking one agent
+    // does not disable the others.
+    return { mastercardAgentId: `${agentId}#${input.agentDid}` }
   }
 
-  async register(input: { ownerDid: string; agentDid: string; publicKeyThumbprint: string }): Promise<{ mastercardAgentId: string }> {
-    const { status, body } = await this.http.post<{ agentId?: string }>(this.http.cfg.paths.registerAgent, input)
-    if (status >= 300 || !body.agentId) throw new Error(`AP4M agent registration failed (${status}): ${JSON.stringify(body)}`)
-    return { mastercardAgentId: body.agentId }
+  async isRegistered(id: string): Promise<boolean> {
+    return id.length > 0 && !this.revoked.has(id)
   }
 
-  async isRegistered(mastercardAgentId: string): Promise<boolean> {
-    // The Early Access API may expose a lookup; until confirmed, registration state is held by the caller's store
-    // and revocation is enforced by the delegation being removed on the ledger.
-    return mastercardAgentId.length > 0
-  }
-
-  async revoke(mastercardAgentId: string): Promise<void> {
-    const { status, body } = await this.http.post(this.http.cfg.paths.revokeAgent, { agentId: mastercardAgentId })
-    if (status >= 300) throw new Error(`AP4M agent revocation failed (${status}): ${JSON.stringify(body)}`)
+  async revoke(id: string): Promise<void> {
+    this.revoked.add(id)
   }
 }
 
 /**
- * Asks Mastercard to authorize one purchase against the agent's registered intent. The VI hash identifies the
- * credential chain; the settlement fields tell AP4M which stablecoin rail will carry the payment.
+ * Authorizes a purchase by redeeming an EIP-712 voucher on the AP4M channel. The voucher is cumulative, so the
+ * channel cap (not any single call) bounds total network spend.
  */
 export class Ap4mNetworkAuthorizer implements NetworkAuthorizer {
-  private readonly http: Ap4mHttp
+  /** Serializes redemptions: each voucher builds on the previous cumulative amount. */
+  private queue: Promise<unknown> = Promise.resolve()
 
-  constructor(cfg: Ap4mConfig, sign?: RequestSigner, fetchFn?: typeof fetch) {
-    this.http = new Ap4mHttp(cfg, sign, fetchFn)
+  constructor(private readonly session: Ap4mSession) {}
+
+  authorize(req: AuthorizationRequest): Promise<AuthorizationResult> {
+    const run = this.queue.then(() => this.redeem(req))
+    this.queue = run.catch(() => undefined)
+    return run
   }
 
-  async authorize(req: AuthorizationRequest): Promise<AuthorizationResult> {
-    const { status, body } = await this.http.post<{ approved?: boolean; authorizationId?: string; declineReason?: string; id?: string }>(
-      this.http.cfg.paths.authorize,
-      {
-        agentId: req.mastercardAgentId,
-        intentHash: req.viHash,
-        amount: { value: (req.amountCents / 100).toFixed(2), currency: req.currency },
-        merchantId: req.merchantId,
-        mode: req.mode,
-        settlement: { network: this.http.cfg.settlementNetwork, asset: this.http.cfg.settlementAsset },
-      },
-    )
-    if (status >= 500) throw new Error(`AP4M unavailable (${status})`)
-    const authorizationId = body.authorizationId ?? body.id ?? ''
-    if (status >= 300 || body.approved === false) {
-      return { approved: false, authorizationId, declineReason: body.declineReason ?? `HTTP ${status}` }
+  private async redeem(req: AuthorizationRequest): Promise<AuthorizationResult> {
+    const { cfg, sdk, wallet } = this.session
+    // Integer math: cents x scale / 100, so 3500 cents at scale 0.01 is exactly 0.35 RLUSD.
+    const amount = (BigInt(req.amountCents) * ethers.parseUnits(String(cfg.amountScale), RLUSD_DECIMALS)) / 100n
+    if (amount <= 0n) return { approved: false, authorizationId: '', declineReason: 'amount rounds to zero RLUSD' }
+
+    const { rpcUrl, paymentLedger } = await this.session.serviceConfig()
+    const channelId = await this.session.ensureChannel()
+    const provider = await this.session.provider()
+    const state = await sdk.getChannelState(provider, paymentLedger, channelId)
+    if (state.redeemed + amount > state.cap) {
+      return { approved: false, authorizationId: '', declineReason: `AP4M channel cap reached (${ethers.formatUnits(state.redeemed, RLUSD_DECIMALS)} of ${ethers.formatUnits(state.cap, RLUSD_DECIMALS)} RLUSD)` }
     }
-    return { approved: body.approved === true, authorizationId, declineReason: body.approved === true ? undefined : 'no approval in response' }
+    const { claimId, txHash } = await sdk.redeemVoucher(wallet, paymentLedger, rpcUrl, channelId, state.redeemed + amount)
+    const rec = await this.session.recordRedemption(txHash)
+    const id = rec.claim_id ?? claimId ?? txHash
+    return {
+      approved: true,
+      authorizationId: id,
+      evidence: { network: 'xrpl-evm-testnet', channelId, redeemTx: txHash, claimId: id, rlusd: ethers.formatUnits(amount, RLUSD_DECIMALS) },
+    }
+  }
+
+  /** Release the redeemed RLUSD to the merchant payout wallet and fetch the receipt. */
+  async settle(): Promise<SettlementResult> {
+    const token = await this.session.login()
+    const channelId = await this.session.ensureChannel()
+    const r = await this.session.sdk.settle(this.session.cfg.apiUrl, token, channelId)
+    return { settlementTx: r.settlement_tx, payoutTx: r.payout_tx, receiptUrl: r.receipt_url ? this.session.cfg.apiUrl + r.receipt_url : undefined }
+  }
+
+  async close(): Promise<string | undefined> {
+    const token = await this.session.login()
+    const channelId = await this.session.ensureChannel()
+    const r = await this.session.sdk.closeChannel(this.session.cfg.apiUrl, token, this.session.wallet, channelId)
+    this.session.forgetChannel()
+    return r.tx_hash
   }
 }

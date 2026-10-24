@@ -1,9 +1,9 @@
 import { Wallet } from 'xrpl'
 import { describe, expect, it } from 'vitest'
-import { createChallenge, signChallenge, verifyChallenge } from '../../src/identity/challenge.js'
-import { hashDocument, userDocument, agentDocument, didFor } from '../../src/identity/did.js'
-import { findSelfDealing } from '../../src/scoring/antiGaming.js'
-import type { AgentRecord, UserRecord } from '../../src/store/state.js'
+import { createChallenge, signChallenge, verifyChallenge } from '../src/identity/challenge.js'
+import { hashDocument, userDocument, agentDocument, didFor } from '../src/identity/did.js'
+import { findSelfDealing } from '../src/scoring/antiGaming.js'
+import type { AgentRecord, UserRecord } from '../src/store/state.js'
 
 describe('ownership challenge', () => {
   const main = Wallet.generate()

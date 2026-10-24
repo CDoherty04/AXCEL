@@ -415,6 +415,9 @@ export class CreditService {
       Memos: [
         { Memo: { MemoType: hex('vi/sha256'), MemoData: viHash } },
         { Memo: { MemoType: hex('agent/did'), MemoData: hex(agent.did) } },
+        ...(auth.evidence?.claimId
+          ? [{ Memo: { MemoType: hex('ap4m/claim'), MemoData: hex(`${auth.evidence.network}:${auth.evidence.claimId}`) } }]
+          : []),
       ],
     })
     const signed = this.agentWallet(agent).sign(tx)
@@ -428,7 +431,7 @@ export class CreditService {
     if (agent.spentCents >= agent.budgetCents * 0.95) u.events.push({ type: 'mandate', ts, agentId: agent.id, outcome: 'clean_stop' })
     this.pushUtilization(u, await this.creditState(u.id))
     this.store.save()
-    return { txHash, viHash, amount, mode: v.mode!, authorizationId: auth.authorizationId, score: (await this.rescore(u.id)).score }
+    return { txHash, viHash, amount, mode: v.mode!, authorizationId: auth.authorizationId, network: auth.evidence, score: (await this.rescore(u.id)).score }
   }
 
   /** Demo path: the agent builds its chain and settles in one call. */
@@ -523,6 +526,15 @@ export class CreditService {
     }
     if (flagged) this.store.save()
     return flagged
+  }
+
+  /** Release the network-side funds (AP4M: RLUSD to the merchant payout wallet) and close the channel. */
+  async settleNetwork(opts: { close?: boolean } = {}) {
+    const a = this.d.authorizer
+    if (!a.settle) return { settled: false as const }
+    const settlement = await a.settle()
+    const closeTx = opts.close && a.close ? await a.close() : undefined
+    return { settled: true as const, ...settlement, closeTx }
   }
 
   /** Demo only: the user's own income arriving, so they can repay more than the borrowed balance they have left. */

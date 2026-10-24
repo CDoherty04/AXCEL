@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { DAY } from '../../src/config.js'
-import { computeScore, decay } from '../../src/scoring/engine.js'
-import type { ScoreEvent } from '../../src/scoring/types.js'
+import { DAY } from '../src/config.js'
+import { computeScore, decay } from '../src/scoring/engine.js'
+import type { ScoreEvent } from '../src/scoring/types.js'
 
 const now = 1_800_000_000
 const base = { kyaValid: true, accountCreatedAt: now - 365 * DAY, now }

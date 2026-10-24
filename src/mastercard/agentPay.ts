@@ -20,6 +20,14 @@ export interface AuthorizationResult {
   approved: boolean
   authorizationId: string
   declineReason?: string
+  /** Network-side proof of the authorization (for example the AP4M redemption), linked into the XRPL anchor memo. */
+  evidence?: { network: string; channelId?: string; redeemTx?: string; claimId?: string; rlusd?: string }
+}
+
+export interface SettlementResult {
+  settlementTx?: string
+  payoutTx?: string
+  receiptUrl?: string
 }
 
 /**
@@ -28,6 +36,10 @@ export interface AuthorizationResult {
  */
 export interface NetworkAuthorizer {
   authorize(req: AuthorizationRequest): Promise<AuthorizationResult>
+  /** Release redeemed funds to the merchant and return the receipt. Optional: card rails settle on their own. */
+  settle?(): Promise<SettlementResult>
+  /** Close the spending channel. Optional. */
+  close?(): Promise<string | undefined>
 }
 
 export class MockAgentRegistry implements AgentRegistry {

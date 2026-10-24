@@ -245,7 +245,7 @@ Run cold start on Mainnet through QuickNode and everything after it on Devnet. T
 
 ## Build status (code in this repo)
 
-TypeScript service in `src/`, Python bridge to the pinned VI reference in `vi_bridge/` (reference cloned to `vendor/verifiable-intent` at commit `356c296`, v0.1). Everything below runs on Devnet. `npm run bootstrap` creates the lending infrastructure once (about 200 s because of the vault subscription window), `npm run demo` runs the full demo script, `npm test` runs the scoring tests, `npm run dev` starts the API. Python setup: `python -m venv .venv` then `.venv/Scripts/python -m pip install cryptography`.
+TypeScript service in `src/`, Python bridge to the pinned VI reference in `vi_bridge/` (reference cloned to `vendor/verifiable-intent` at commit `356c296`, v0.1). Everything below runs on Devnet. `npm run bootstrap` creates the lending infrastructure once (about 200 s because of the vault subscription window), `npm run demo:layer` runs the full demo script, `npm run test:layer` runs the credit-layer tests, `npm run dev` starts its API. Python setup: `python -m venv .venv` then `.venv/Scripts/python -m pip install cryptography`.
 
 | Area | File | What it does |
 | --- | --- | --- |
@@ -254,10 +254,10 @@ TypeScript service in `src/`, Python bridge to the pinned VI reference in `vi_br
 | Ownership proof | `src/identity/challenge.ts` | Challenge binds the Mainnet and Devnet addresses; both keys sign; verified with `ripple-keypairs` |
 | DID | `src/identity/did.ts` | `DIDSet` carries a URI and the sha256 of the DID document (ledger fields cap at 256 bytes); the resolver checks the hash. The user DID lists active agents; each agent DID names the user as controller |
 | KYA | `src/identity/kya.ts` | KYC provider interface (mocked), `KYA_VERIFIED` credential with 365-day expiry, live credential status reads |
-| Know Your Agent | `src/mastercard/agentPay.ts`, `ap4m.ts` | `AgentRegistry` and `NetworkAuthorizer` interfaces. Mocks by default; `MASTERCARD_MODE=ap4m` selects the real Agent Pay for Machines adapter (scaffold, see below) |
+| Know Your Agent | `src/mastercard/agentPay.ts`, `ap4m.ts` | `AgentRegistry` and `NetworkAuthorizer` interfaces. Mocks by default; `MASTERCARD_MODE=ap4m` selects the real Agent Pay for Machines adapter (see below) |
 | Verifiable Intent | `vi_bridge/bridge.py`, `src/vi/bridge.ts` | Real L1/L2/L3 issuance and network-side verification (STRICT constraints); the memo hash is sha256 over L1, L2 and L3a |
 | Scoring | `src/scoring/engine.ts` | The formula, per-merchant diminishing returns and cap, 90-day decay, repayment tier cap, default cap, per-event breakdown |
-| History | `src/scoring/history.ts` | `account_tx` reader (QuickNode URL via `QUICKNODE_MAINNET_URL`), static reader for demos |
+| History | `src/scoring/history.ts`, `quicknodeHistory.ts` | QuickNode reader built on the teammate's `lib/` (`QUICKNODE_XRP_RPC_URL`), a websocket `account_tx` fallback, and a static reader for demos |
 | Anti-gaming | `src/scoring/antiGaming.ts` | Excludes merchants that are the user's own accounts, share a funding source, or have a DID controlled by the user |
 | Lending | `src/credit/infra.ts`, `loans.ts` | Test-dollar issuer, three tier domains, private closed-ended vault, loan broker with first-loss cover, `LoanSet`, `LoanPay`, atomic credential refresh |
 | Credentials | `src/credit/tierCredential.ts` | Tier credential swap (30-day expiry) |
@@ -288,12 +288,22 @@ Cold start scores 614 (tier B), a 250 loan is drawn, an Immediate and an Autonom
 - The Mastercard network authorization result and KYC are mocked behind interfaces.
 - The dashboard UI is not built; `GET /users/:id/profile` returns everything it needs, with the network labeled.
 
-### Agent Pay for Machines integration (scaffold, waiting on keys)
+### Agent Pay for Machines integration (live service, needs gas to spend)
 
-AP4M opened Early Access on 2026-10-20 (buyer- and seller-side APIs, toolkit, sandbox). Its docs are not public: `developer.mastercard.com/mastercard-agent-pay/...` and the Developers MCP (`@mastercard/developers-mcp` 0.1.7, queried with `scripts/mcp-query.mjs`) both return 404 for it, so endpoint paths, the auth scheme and field names are unconfirmed. `src/mastercard/ap4m.ts` implements `AgentRegistry` and `NetworkAuthorizer` against configurable paths (`.env.example`), with a pluggable `RequestSigner` (bearer by default; swap for OAuth1.0a or mTLS if the docs require it). Setting `MASTERCARD_MODE=ap4m` without the full configuration throws; it never falls back to the mock. `test/ap4m.test.ts` checks the adapter against a local fake server only.
+The AP4M hackathon service (`https://hackathon.ap4m.build`, SDK in `integrations/ap4m/`) runs on **XRPL EVM Testnet** (chain 1449000), not native XRPL Devnet. A team signs in with its agent wallet (EIP-191 challenge), opens a payment **channel** with an RLUSD cap (within its allocation), signs EIP-712 **cumulative vouchers**, redeems them on the `PaymentLedger` contract, reports the redemption, and **settles** (RLUSD released to the merchant payout wallet, with a receipt). `src/mastercard/ap4m.ts` wraps that SDK behind the `AgentRegistry` and `NetworkAuthorizer` interfaces; `MASTERCARD_MODE=ap4m` selects it, and it throws if `TEAM_NAME` or `AGENT_PRIVATE_KEY` is missing rather than falling back to the mock.
 
-To finish once Early Access keys arrive:
+How the two ledgers fit together:
 
-1. Fill `.env` from the Early Access docs and correct the request and response mapping in `ap4m.ts`.
-2. AP4M builds on x402 (HTTP 402, signed payment voucher, vouchers can be batched and redeemed later). Decide whether each purchase is authorized before the XRPL Payment (current flow) or settled by redeeming a voucher on XRPL/RLUSD; the second needs a seller-side flow and probably t54's XRPL x402 Facilitator.
-3. Re-run `npm run demo` with `MASTERCARD_MODE=ap4m` and confirm authorizations are accepted.
+- **Channel cap = the agent spending limit the tier raises** (the Agentic Token analogue). One channel serves all of a user's agents, like the single credit line. Vouchers are cumulative, so the cap bounds total network spend.
+- **Authorization = redeeming a voucher** for the purchase amount, serialized so cumulative amounts never collide. A purchase that would pass the cap is declined before anything is redeemed.
+- **The native XRPL Devnet Payment still carries the Verifiable Intent hash** and is what the score reads; the AP4M claim id is added to its Memos (`ap4m/claim`), linking both legs.
+- **Amounts are scaled** by `AP4M_AMOUNT_SCALE` (default 0.01): the demo borrows test dollars in the hundreds while a team's allocation is 20 RLUSD, so a 35-dollar purchase redeems 0.35 RLUSD.
+- **Funding gap:** the loan is in Devnet test dollars and the channel is funded from the team's RLUSD allocation. Bridging borrowed RLUSD to the EVM side is out of scope here; in production the borrowed RLUSD itself would fund the channel.
+- `settleNetwork({ close })` on the service settles and closes the channel.
+- `npx tsx scripts/ap4m-check.ts` is a read-only readiness check (sign-in, allocation, payout wallet, gas).
+
+Status: sign-in, service config, allocation (20 RLUSD, active) and the merchant payout wallet are verified live. **Not yet exercised live:** channel open and voucher redemption, because the agent wallet has no gas on the EVM testnet (fund it at https://faucet.testevm.ripple.com). The adapter is covered against an SDK double (`test-layer/ap4m.test.ts`).
+
+### Merge notes
+
+`origin/main` carries a parallel implementation (`src/system.ts`, `score.ts`, `policy.ts`, `src/api/server.ts`, QuickNode history in `lib/`, AP4M SDK in `integrations/ap4m/`). Both coexist: the credit-layer service lives in `src/service.ts` with its API in `src/api/creditLayerServer.ts` (`npm run dev`), its tests in `test-layer/` (`npm run test:layer`, vitest), and the original `npm test` still runs the node:test suite. Cold start uses the teammate's QuickNode library through `src/scoring/quicknodeHistory.ts` when `QUICKNODE_XRP_RPC_URL` is set. The two scoring and lending models are not unified yet.

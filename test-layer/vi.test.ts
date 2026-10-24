@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chainHash, ViBridge } from '../../src/vi/bridge.js'
+import { chainHash, ViBridge } from '../src/vi/bridge.js'
 
 const M = { id: 'm-1', name: 'Acme API', website: 'https://acme.example' }
 const ITEM = { id: 'credits', title: 'API credits' }

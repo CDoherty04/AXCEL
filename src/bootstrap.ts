@@ -1,6 +1,8 @@
 import { MockKycProvider } from './identity/kya.js'
 import { MockAgentRegistry, MockNetworkAuthorizer, type AgentRegistry, type NetworkAuthorizer } from './mastercard/agentPay.js'
-import { Ap4mAgentRegistry, Ap4mNetworkAuthorizer, ap4mConfigFromEnv } from './mastercard/ap4m.js'
+import { Ap4mAgentRegistry, Ap4mNetworkAuthorizer, Ap4mSession, ap4mConfigFromEnv } from './mastercard/ap4m.js'
+import { loadQuicknodeEnv } from './lib/quicknode.js'
+import { QuickNodeHistoryReader } from './scoring/quicknodeHistory.js'
 import { LedgerMerchantResolver } from './scoring/antiGaming.js'
 import { StaticHistoryReader, XrplHistoryReader, type HistoryReader } from './scoring/history.js'
 import { CreditService } from './service.js'
@@ -25,6 +27,7 @@ export async function createService(opts: {
   authorizer?: (registry: MockAgentRegistry) => NetworkAuthorizer
   log?: (m: string) => void
 } = {}): Promise<Wiring> {
+  loadQuicknodeEnv() // loads .env.local without overriding the shell
   const log = opts.log ?? (() => {})
   const ledger = await Ledger.connect('devnet')
   const store = new Store(opts.stateFile ?? process.env.STATE_FILE ?? '.data/state.json')
@@ -37,9 +40,9 @@ export async function createService(opts: {
   let registry: AgentRegistry
   let authorizer: NetworkAuthorizer
   if (process.env.MASTERCARD_MODE === 'ap4m') {
-    const cfg = ap4mConfigFromEnv()
-    registry = new Ap4mAgentRegistry(cfg)
-    authorizer = new Ap4mNetworkAuthorizer(cfg)
+    const session = new Ap4mSession(ap4mConfigFromEnv())
+    registry = new Ap4mAgentRegistry(session)
+    authorizer = new Ap4mNetworkAuthorizer(session)
     log('Mastercard: Agent Pay for Machines (real)')
   } else {
     const mock = new MockAgentRegistry()
@@ -58,7 +61,7 @@ export async function createService(opts: {
   service = new CreditService({
     ledger, store, vi, registry, authorizer,
     kyc: new MockKycProvider(),
-    mainnetHistory: opts.mainnetHistory ?? new XrplHistoryReader('mainnet'),
+    mainnetHistory: opts.mainnetHistory ?? (process.env.QUICKNODE_XRP_RPC_URL ? new QuickNodeHistoryReader() : new XrplHistoryReader('mainnet')),
     resolver: new LedgerMerchantResolver(ledger, fetchDoc),
   })
   return { service, ledger, store, registry, close: () => ledger.close() }
