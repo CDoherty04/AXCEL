@@ -29,7 +29,7 @@ describe('ownership challenge', () => {
 })
 
 describe('DID documents', () => {
-  const agent = { id: 'ag1', account: 'rAgent', did: didFor('rAgent'), status: 'active', mode: 'autonomous', mastercardAgentId: 'agt_1', viKey: { public_jwk: { x: '1' } } } as unknown as AgentRecord
+  const agent = { id: 'ag1', account: 'rAgent', did: didFor('rAgent'), status: 'active', mode: 'autonomous', mastercardAgentId: 'agt_1', pot: { account: 'rPot' }, viKey: { public_jwk: { x: '1' } } } as unknown as AgentRecord
   const user = { account: 'rUser', viUserKey: { public_jwk: { x: '2' } }, agents: { ag1: agent } } as unknown as UserRecord
 
   it('lists active agents and drops revoked ones', () => {
@@ -45,6 +45,11 @@ describe('DID documents', () => {
     agent.status = 'revoked'
     expect(hashDocument(userDocument(user))).not.toBe(h)
     agent.status = 'active'
+  })
+
+  it('publishes the agent spending account in both documents', () => {
+    expect(userDocument(user).service[0]).toMatchObject({ spendingAccount: 'rPot' })
+    expect(agentDocument(user, agent).service.find((s) => s.type === 'SpendingAccount')).toMatchObject({ serviceEndpoint: 'rPot' })
   })
 
   it('names the user as the agent controller', () => {

@@ -175,6 +175,10 @@ export class Ap4mAgentRegistry implements AgentRegistry {
 export class Ap4mNetworkAuthorizer implements NetworkAuthorizer {
   /** Serializes redemptions: each voucher builds on the previous cumulative amount. */
   private queue: Promise<unknown> = Promise.resolve()
+  /** Idempotency by Verifiable Intent hash: a retried purchase never redeems a second voucher. */
+  private readonly done = new Map<string, AuthorizationResult>()
+  /** Redeemed on-chain but not yet reported to AP4M; a retry only re-reports. */
+  private readonly unreported = new Map<string, { txHash: string; claimId: string | null; channelId: string; rlusd: string }>()
 
   constructor(private readonly session: Ap4mSession) {}
 
@@ -185,26 +189,36 @@ export class Ap4mNetworkAuthorizer implements NetworkAuthorizer {
   }
 
   private async redeem(req: AuthorizationRequest): Promise<AuthorizationResult> {
+    const seen = this.done.get(req.viHash)
+    if (seen) return seen
     const { cfg, sdk, wallet } = this.session
     // Integer math: cents x scale / 100, so 3500 cents at scale 0.01 is exactly 0.35 RLUSD.
     const amount = (BigInt(req.amountCents) * ethers.parseUnits(String(cfg.amountScale), RLUSD_DECIMALS)) / 100n
     if (amount <= 0n) return { approved: false, authorizationId: '', declineReason: 'amount rounds to zero RLUSD' }
 
-    const { rpcUrl, paymentLedger } = await this.session.serviceConfig()
-    const channelId = await this.session.ensureChannel()
-    const provider = await this.session.provider()
-    const state = await sdk.getChannelState(provider, paymentLedger, channelId)
-    if (state.redeemed + amount > state.cap) {
-      return { approved: false, authorizationId: '', declineReason: `AP4M channel cap reached (${ethers.formatUnits(state.redeemed, RLUSD_DECIMALS)} of ${ethers.formatUnits(state.cap, RLUSD_DECIMALS)} RLUSD)` }
+    let pending = this.unreported.get(req.viHash)
+    if (!pending) {
+      const { rpcUrl, paymentLedger } = await this.session.serviceConfig()
+      const channelId = await this.session.ensureChannel()
+      const provider = await this.session.provider()
+      const state = await sdk.getChannelState(provider, paymentLedger, channelId)
+      if (state.redeemed + amount > state.cap) {
+        return { approved: false, authorizationId: '', declineReason: `AP4M channel cap reached (${ethers.formatUnits(state.redeemed, RLUSD_DECIMALS)} of ${ethers.formatUnits(state.cap, RLUSD_DECIMALS)} RLUSD)` }
+      }
+      const { claimId, txHash } = await sdk.redeemVoucher(wallet, paymentLedger, rpcUrl, channelId, state.redeemed + amount)
+      pending = { txHash, claimId, channelId, rlusd: ethers.formatUnits(amount, RLUSD_DECIMALS) }
+      this.unreported.set(req.viHash, pending)
     }
-    const { claimId, txHash } = await sdk.redeemVoucher(wallet, paymentLedger, rpcUrl, channelId, state.redeemed + amount)
-    const rec = await this.session.recordRedemption(txHash)
-    const id = rec.claim_id ?? claimId ?? txHash
-    return {
+    const rec = await this.session.recordRedemption(pending.txHash)
+    const id = rec.claim_id ?? pending.claimId ?? pending.txHash
+    const result: AuthorizationResult = {
       approved: true,
       authorizationId: id,
-      evidence: { network: 'xrpl-evm-testnet', channelId, redeemTx: txHash, claimId: id, rlusd: ethers.formatUnits(amount, RLUSD_DECIMALS) },
+      evidence: { network: 'xrpl-evm-testnet', channelId: pending.channelId, redeemTx: pending.txHash, claimId: id, rlusd: pending.rlusd },
     }
+    this.unreported.delete(req.viHash)
+    this.done.set(req.viHash, result)
+    return result
   }
 
   /** Release the redeemed RLUSD to the merchant payout wallet and fetch the receipt. */

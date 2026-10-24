@@ -34,7 +34,9 @@ function session(sdk: Ap4mSdk) {
   return new Ap4mSession(cfg(), sdk, fetchFn)
 }
 
-const req = (amountCents: number) => ({ mastercardAgentId: 'a', viHash: 'H', amountCents, currency: 'USD' as const, merchantId: 'm', mode: 'autonomous' as const })
+let seq = 0
+/** Each purchase has its own chain hash; the same hash means the same purchase. */
+const req = (amountCents: number, viHash = `H${++seq}`) => ({ mastercardAgentId: 'a', viHash, amountCents, currency: 'USD' as const, merchantId: 'm', mode: 'autonomous' as const })
 
 describe('Agent Pay for Machines adapter', () => {
   it('refuses to start unconfigured instead of silently mocking', () => {
@@ -87,5 +89,36 @@ describe('Agent Pay for Machines adapter', () => {
     await reg.revoke(a.mastercardAgentId)
     expect(await reg.isRegistered(a.mastercardAgentId)).toBe(false)
     expect(await reg.isRegistered(b.mastercardAgentId)).toBe(true)
+  })
+})
+
+describe('Agent Pay for Machines idempotency', () => {
+  it('never redeems a second voucher when the same chain is authorized again', async () => {
+    const { sdk, calls } = fakeSdk('10')
+    const auth = new Ap4mNetworkAuthorizer(session(sdk))
+    const a = await auth.authorize(req(2000, 'SAME'))
+    const b = await auth.authorize(req(2000, 'SAME'))
+    expect(b).toEqual(a)
+    expect(calls.filter((c) => c.startsWith('redeem'))).toHaveLength(1)
+  })
+
+  it('re-reports a redemption that was not recorded, without redeeming again', async () => {
+    const { sdk, calls } = fakeSdk('10')
+    let reports = 0
+    const flaky = (async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith('/public/config')) {
+        return new Response(JSON.stringify({ network: { rpcUrl: 'http://127.0.0.1:1', chainId: 1449000 }, contracts: { paymentLedger: '0x' + '22'.repeat(20) } }))
+      }
+      if (String(url).endsWith('/record-redemption')) {
+        if (++reports === 1) return new Response('{"error":"gateway"}', { status: 502 })
+        return new Response(JSON.stringify({ claim_id: 'claim-ok' }))
+      }
+      return new Response('{}', { status: 404 })
+    }) as typeof fetch
+    const auth = new Ap4mNetworkAuthorizer(new Ap4mSession(cfg(), sdk, flaky))
+    await expect(auth.authorize(req(2000, 'RETRY'))).rejects.toThrow(/record-redemption failed/)
+    const ok = await auth.authorize(req(2000, 'RETRY'))
+    expect(ok).toMatchObject({ approved: true, authorizationId: 'claim-ok' })
+    expect(calls.filter((c) => c.startsWith('redeem'))).toHaveLength(1)
   })
 })

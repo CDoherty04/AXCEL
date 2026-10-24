@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Wallet } from 'xrpl'
 import { credentialTypes, hex, publicUrl, tiers, type Tier } from './config.js'
 import { issuerWallet, serviceWallet, tokenAmount } from './credit/infra.js'
-import { delegatePayment, revokeDelegation } from './credit/delegation.js'
+import { createPot, ensurePayerCredential, freezePot, fundPot, restrictMerchant } from './credit/pots.js'
 import {
   openLoan, payoffAmount, readLoan, submitCredentialRefreshBatch, tokenBalance, TF_LOAN_FULL_PAYMENT, type LoanState,
 } from './credit/loans.js'
@@ -15,7 +15,8 @@ import { findSelfDealing, type MerchantResolver } from './scoring/antiGaming.js'
 import { computeScore } from './scoring/engine.js'
 import type { HistoryReader } from './scoring/history.js'
 import type { ScoreEvent, ScoreResult } from './scoring/types.js'
-import { HttpError, type AgentRecord, type MerchantRecord, type Store, type UserRecord } from './store/state.js'
+import { HttpError, type AgentRecord, type MerchantRecord, type PendingPurchase, type PendingState, type Store, type UserRecord } from './store/state.js'
+import { judgePotPayment, viHashOf, type LedgerPayment, type PotPaymentVerdict } from './settlement.js'
 import { chainHash, type Item, type Merchant, type ViChain, type ViBridge } from './vi/bridge.js'
 import { nowUnix, type Ledger } from './xrpl/client.js'
 
@@ -31,6 +32,8 @@ export interface Deps {
   devnetHistory?: HistoryReader
   resolver: MerchantResolver
   baseUrl?: string
+  /** Borrow on demand: when the user's balance is short, draw max(shortfall, chunk) test dollars (off by default). */
+  autoBorrowChunk?: number
 }
 
 export interface AgentOptions {
@@ -57,15 +60,32 @@ export interface CreditState {
 
 const cents = (c: number): string => (c / 100).toFixed(2)
 const ripple = (unix: number): number => unix - 946_684_800
-const strip = <T extends { seed?: string }>(o: T): Omit<T, 'seed'> => {
-  const { seed: _seed, ...rest } = o
-  return rest
+const MAX_ATTEMPTS = 5
+
+/** A network decline: final, not retried. */
+class Declined extends Error {}
+
+/** Records handed to API callers never carry seeds or private keys. */
+export type PublicAgent = Omit<AgentRecord, 'seed' | 'pot' | 'viKey' | 'l2'> & { pot: { account: string }; viPublicKey: unknown }
+export const publicAgent = (a: AgentRecord): PublicAgent => {
+  const { seed: _s, pot, viKey, l2: _l2, ...rest } = a
+  return { ...rest, pot: { account: pot.account }, viPublicKey: viKey.public_jwk }
 }
+export const publicUser = (u: UserRecord) => ({
+  id: u.id, account: u.account, did: u.did, mainnetAccount: u.mainnetAccount, mainnetVerified: u.mainnetVerified,
+  kyaExpiresAt: u.kyaExpiresAt, tier: u.tier, tierExpiresAt: u.tierExpiresAt, score: u.score,
+  agents: Object.values(u.agents).map(publicAgent), viUserPublicKey: u.viUserKey.public_jwk,
+})
 
 export class CreditService {
   readonly ledger: Ledger
   readonly store: Store
   private readonly base: string
+  private readonly locks = new Map<string, Promise<unknown>>()
+  /** Unexpected agent activity caught by the guard; surfaced on the profile. */
+  readonly alerts: { ts: number; agentId: string; txHash: string; reason: string }[] = []
+  /** Set by the live feed so newly created spending accounts are watched. */
+  onWatch?: (account: string) => void
 
   constructor(private readonly d: Deps) {
     this.ledger = d.ledger
@@ -116,16 +136,19 @@ export class CreditService {
     const wallet = await this.ledger.fund()
     const token = tokenAmount(this.infra, '100000000')
     await this.ledger.submit({ TransactionType: 'TrustSet', Account: wallet.address, LimitAmount: token }, wallet)
+    // Accept funds only from accounts holding an AGENT_PAYER credential from this service.
+    await restrictMerchant(this.ledger, this.service.address, wallet)
     const m: MerchantRecord = { id: `m_${randomUUID().slice(0, 8)}`, ...input, account: wallet.address, seed: wallet.seed! }
     this.store.state.merchants[m.id] = m
     this.store.save()
-    return strip(m)
+    const { seed: _seed, ...pub } = m
+    return pub
   }
 
   // ------------------------------------------------------------------ users and identity
 
   /** Create the user's Devnet account, VI keys, Mastercard L1 credential and an XRPL DID. */
-  async createUser(id: string = `u_${randomUUID().slice(0, 8)}`): Promise<Omit<UserRecord, 'seed'>> {
+  async createUser(id: string = `u_${randomUUID().slice(0, 8)}`) {
     if (this.store.state.users[id]) throw new HttpError(409, `user ${id} exists`)
     const wallet = await this.ledger.fund()
     const viUserKey = await this.d.vi.keygen()
@@ -133,13 +156,13 @@ export class CreditService {
     const l1 = await this.d.vi.issueL1({ issuer: this.infra.viIssuer, userPublicJwk: viUserKey.public_jwk, subject: did })
     const user: UserRecord = {
       id, account: wallet.address, seed: wallet.seed!, mainnetVerified: false, did, viUserKey, l1,
-      accountCreatedAt: nowUnix(), agents: {}, events: [], loans: [], purchases: [], excludedMerchants: [],
+      accountCreatedAt: nowUnix(), agents: {}, events: [], loans: [], purchases: [], pending: [], excludedMerchants: [],
       fundingSources: [], lateFlaggedDue: [],
     }
     this.store.state.users[id] = user
     await this.publishUserDid(user)
     this.store.save()
-    return strip(user)
+    return publicUser(user)
   }
 
   /** Step 1 of cold start: a challenge that binds the Mainnet and Devnet accounts. */
@@ -185,6 +208,17 @@ export class CreditService {
     return { expiresAt: out.expiresAt, txHashes: out.txHashes }
   }
 
+  /** KYA status by DID or account, for third parties (merchants, other agents) that want to check an owner. */
+  async kyaLookup(didOrAccount: string) {
+    const u = Object.values(this.store.state.users).find((x) => x.did === didOrAccount || x.account === didOrAccount)
+    if (!u) throw new HttpError(404, `no user for ${didOrAccount}`)
+    const [kya, tier] = await Promise.all([
+      kyaStatus(this.ledger, u.account, this.service.address),
+      currentTier(this.ledger, u.account, this.service.address),
+    ])
+    return { did: u.did, account: u.account, kyaVerified: kya.valid, kyaExpiresAt: kya.expiresAt, tier: tier?.tier ?? null, tierExpiresAt: tier?.expiresAt }
+  }
+
   // ------------------------------------------------------------------ scoring
 
   /** Read Mainnet (and any Devnet) history for the proven accounts and score the user. */
@@ -208,7 +242,7 @@ export class CreditService {
 
   private async identity(u: UserRecord) {
     return {
-      ownedAccounts: [u.account, ...(u.mainnetAccount ? [u.mainnetAccount] : []), ...Object.values(u.agents).map((a) => a.account)],
+      ownedAccounts: [u.account, ...(u.mainnetAccount ? [u.mainnetAccount] : []), ...Object.values(u.agents).flatMap((a) => [a.account, a.pot.account])],
       fundingSources: u.fundingSources,
       didControllers: [u.did],
     }
@@ -302,7 +336,7 @@ export class CreditService {
 
   // ------------------------------------------------------------------ agents
 
-  async addAgent(userId: string, opts: AgentOptions): Promise<Omit<AgentRecord, 'seed'>> {
+  async addAgent(userId: string, opts: AgentOptions): Promise<PublicAgent> {
     const u = this.store.user(userId)
     const kya = await kyaStatus(this.ledger, u.account, this.service.address)
     if (!kya.valid) throw new HttpError(403, 'owner must hold a valid KYA-Verified credential before linking agents')
@@ -315,12 +349,14 @@ export class CreditService {
       ownerDid: u.did, agentDid: did, publicKeyThumbprint: String((viKey.public_jwk as { x?: string }).x ?? ''),
     })
 
+    // The agent pays from its own spending account, never from the user's main account.
+    const pot = await createPot(this.ledger, this.infra, this.service, wallet.address)
     const agent: AgentRecord = {
       id, label: opts.label, account: wallet.address, seed: wallet.seed!, did, kid: id, viKey, mastercardAgentId,
+      pot: { account: pot.wallet.address, seed: pot.wallet.seed! },
       mode: opts.mode, status: 'active', maxCents: opts.maxCents, budgetCents: opts.budgetCents, spentCents: 0,
       merchants, items: opts.items, createdAt: nowUnix(),
     }
-    await delegatePayment(this.ledger, this.userWallet(u), wallet.address)
     if (opts.mode === 'autonomous') {
       agent.l2 = await this.d.vi.autonomousMandate({
         l1: u.l1!, user: u.viUserKey, agentPublicJwk: viKey.public_jwk, agentKid: id,
@@ -331,19 +367,30 @@ export class CreditService {
     await publishDid(this.ledger, wallet, `${this.base}/did/${wallet.address}`, agentDocument(u, agent))
     await this.publishUserDid(u)
     this.store.save()
-    return strip(agent)
+    this.onWatch?.(pot.wallet.address)
+    return publicAgent(agent)
   }
 
-  /** Revoke instantly: remove the delegation and the Mastercard registration. History stays in the score. */
-  async revokeAgent(agentId: string): Promise<{ txHash: string }> {
+  /**
+   * Revoke instantly: remove the delegation, delete the pot's payer credential (merchants then refuse it even if
+   * the delegation lingered), sweep the pot back to the user and drop the Mastercard registration. Purchases the
+   * agent still had in flight are marked stranded for review. History stays in the score.
+   */
+  async revokeAgent(agentId: string): Promise<{ txHash: string; txHashes: string[] }> {
     const { user, agent } = this.agentOf(agentId)
-    const txHash = await revokeDelegation(this.ledger, this.userWallet(user), agent.account)
+    const hashes = await freezePot(this.ledger, this.infra, this.service, Wallet.fromSeed(agent.pot.seed), agent.account, user.account)
     await this.d.registry.revoke(agent.mastercardAgentId)
     agent.status = 'revoked'
     agent.revokedAt = nowUnix()
+    for (const p of user.pending) {
+      if (p.agentId === agent.id && p.state !== 'paid') {
+        p.state = 'stranded'
+        p.error = 'agent revoked before the purchase completed'
+      }
+    }
     await this.publishUserDid(user)
     this.store.save()
-    return { txHash }
+    return { txHash: hashes[0]!, txHashes: hashes }
   }
 
   // ------------------------------------------------------------------ spending
@@ -372,9 +419,27 @@ export class CreditService {
     throw new HttpError(status, reason)
   }
 
+  /** One settlement at a time per agent: pot funding and payment must not interleave. */
+  private async withLock<T>(agentId: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.locks.get(agentId) ?? Promise.resolve()
+    const run = prev.then(fn, fn)
+    this.locks.set(agentId, run.catch(() => undefined))
+    return run
+  }
+
+  private pendingCents(u: UserRecord, agentId?: string): number {
+    return u.pending
+      .filter((p) => p.state !== 'stranded' && p.state !== 'declined' && (!agentId || p.agentId === agentId))
+      .reduce((s, p) => s + p.amountCents, 0)
+  }
+
   /**
-   * Verify and settle one purchase. The amount and payee come from the validated chain, never from the request.
-   * A purchase scores only after the delegated Payment is validated on XRPL with the chain hash in its Memos.
+   * Verify one purchase and settle it. Amount and payee come from the validated chain, never from the request.
+   *
+   * Settlement is a write-ahead state machine (validated -> authorized -> funded -> paid). The record is saved
+   * before each step, the network is asked once (a retry resumes, it never redeems a second voucher), and the
+   * purchase scores only after the pot's Payment validates on XRPL with the chain hash in its Memos. If any step
+   * after authorization fails the purchase stays pending and `reconcile()` finishes it.
    */
   async settlePurchase(agentId: string, chain: ViChain) {
     const { user: u, agent } = this.agentOf(agentId)
@@ -386,52 +451,196 @@ export class CreditService {
     const viHash = chainHash(chain)
     if (u.purchases.some((p) => p.viHash === viHash)) throw new HttpError(409, 'this Verifiable Intent chain was already settled')
 
-    const v = await this.d.vi.validate(chain, this.infra.viIssuer.public_jwk)
-    if (!v.valid || v.amount_cents === null || !v.payee) this.refuse(u, agent, `Verifiable Intent rejected: ${v.errors.join('; ') || 'invalid chain'}`)
-    if (v.mode !== agent.mode) this.refuse(u, agent, `chain mode ${v.mode} does not match agent mode ${agent.mode}`)
+    return this.withLock(agentId, async () => {
+      const existing = u.pending.find((p) => p.viHash === viHash)
+      if (existing) return this.advance(u, existing)
 
-    const merchant = this.store.state.merchants[v.payee!.id]
-    if (!merchant) this.refuse(u, agent, `unknown payee ${v.payee!.id}`)
-    const amountCents = v.amount_cents!
-    if (agent.spentCents + amountCents > agent.budgetCents) this.refuse(u, agent, 'agent budget exceeded')
+      const v = await this.d.vi.validate(chain, this.infra.viIssuer.public_jwk)
+      if (!v.valid || v.amount_cents === null || !v.payee) this.refuse(u, agent, `Verifiable Intent rejected: ${v.errors.join('; ') || 'invalid chain'}`)
+      if (v.mode !== agent.mode) this.refuse(u, agent, `chain mode ${v.mode} does not match agent mode ${agent.mode}`)
 
-    const cs = await this.creditState(u.id)
-    if (!cs.tier) throw new HttpError(403, 'no valid CreditTier credential')
-    const amount = amountCents / 100
-    if (cs.spendOutstanding + amount > cs.creditLine) throw new HttpError(402, `purchase would exceed the credit line (${cs.creditLine})`)
-    if (cs.balance < amount) throw new HttpError(402, 'insufficient borrowed balance in the user account')
+      const merchant = this.store.state.merchants[v.payee!.id]
+      if (!merchant) this.refuse(u, agent, `unknown payee ${v.payee!.id}`)
+      const amountCents = v.amount_cents!
+      if (agent.spentCents + this.pendingCents(u, agent.id) + amountCents > agent.budgetCents) this.refuse(u, agent, 'agent budget exceeded')
 
-    const auth = await this.d.authorizer.authorize({
-      mastercardAgentId: agent.mastercardAgentId, viHash, amountCents, currency: 'USD', merchantId: merchant!.id, mode: v.mode!,
+      let cs = await this.creditState(u.id)
+      if (!cs.tier) throw new HttpError(403, 'no valid CreditTier credential')
+      const amount = amountCents / 100
+      const inFlight = this.pendingCents(u) / 100
+      if (cs.spendOutstanding + inFlight + amount > cs.creditLine) throw new HttpError(402, `purchase would exceed the credit line (${cs.creditLine})`)
+      if (cs.balance < amount + inFlight) {
+        const shortfall = amount + inFlight - cs.balance
+        if (!this.d.autoBorrowChunk || cs.available < shortfall) throw new HttpError(402, 'insufficient borrowed balance in the user account')
+        // Borrow on demand: draw only what the agent needs (at least one chunk, never past the line).
+        await this.borrow(u.id, Math.min(cs.available, Math.max(shortfall, this.d.autoBorrowChunk)))
+        cs = await this.creditState(u.id)
+      }
+
+      const now = nowUnix()
+      const p: PendingPurchase = {
+        id: `p_${randomUUID().slice(0, 8)}`, agentId: agent.id, viHash, mode: v.mode!, amountCents, merchantId: merchant!.id,
+        merchantAccount: merchant!.account, chain, state: 'validated', attempts: 0, createdAt: now, updatedAt: now,
+      }
+      u.pending.push(p)
+      this.store.save()
+      return this.advance(u, p)
     })
-    if (!auth.approved) throw new HttpError(402, `network declined: ${auth.declineReason}`)
+  }
 
+  private touch(u: UserRecord, p: PendingPurchase, state?: PendingState): void {
+    if (state) p.state = state
+    p.updatedAt = nowUnix()
+    this.store.save()
+  }
+
+  /** Run a pending purchase forward from wherever it stopped. */
+  private async advance(u: UserRecord, p: PendingPurchase) {
+    const agent = u.agents[p.agentId]!
+    if (p.state === 'stranded') throw new HttpError(409, `purchase ${p.id} is stranded: ${p.error ?? 'needs review'}`)
+    try {
+      if (p.state === 'validated') {
+        const auth = await this.d.authorizer.authorize({
+          mastercardAgentId: agent.mastercardAgentId, viHash: p.viHash, amountCents: p.amountCents, currency: 'USD',
+          merchantId: p.merchantId, mode: p.mode,
+        })
+        if (!auth.approved) {
+          u.pending = u.pending.filter((x) => x !== p)
+          this.store.save()
+          throw new Declined(`network declined: ${auth.declineReason}`)
+        }
+        p.authorizationId = auth.authorizationId
+        p.evidence = auth.evidence
+        this.touch(u, p, 'authorized')
+      }
+      if (p.state === 'authorized') {
+        p.fundTx = (await this.fundForPurchase(u, agent, p)) ?? p.fundTx
+        this.touch(u, p, 'funded')
+      }
+      if (p.state === 'funded') {
+        p.payTx = await this.payFromPot(agent, p)
+        this.touch(u, p, 'paid')
+      }
+    } catch (e) {
+      if (e instanceof Declined) throw new HttpError(402, e.message)
+      p.attempts += 1
+      p.error = e instanceof Error ? e.message : String(e)
+      this.touch(u, p, p.attempts >= MAX_ATTEMPTS ? 'stranded' : undefined)
+      throw new HttpError(202, `purchase ${p.id} is pending at "${p.state}" and will be retried: ${p.error}`)
+    }
+    return this.finalize(u, p)
+  }
+
+  /** Top the agent's pot up to exactly this purchase. Returns the funding tx, or undefined if already funded. */
+  private async fundForPurchase(u: UserRecord, agent: AgentRecord, p: PendingPurchase): Promise<string | undefined> {
+    const pot = Wallet.fromSeed(agent.pot.seed)
+    await ensurePayerCredential(this.ledger, this.service, pot)
+    const haveCents = Math.round((await tokenBalance(this.ledger, this.infra, pot.address)) * 100)
+    if (haveCents >= p.amountCents) return undefined
+    return fundPot(this.ledger, this.infra, this.userWallet(u), pot.address, cents(p.amountCents - haveCents))
+  }
+
+  /** Pay the merchant from the pot, signed by the delegated agent key. Safe to call again after a crash. */
+  private async payFromPot(agent: AgentRecord, p: PendingPurchase): Promise<string> {
+    const pot = Wallet.fromSeed(agent.pot.seed)
+    const already = await this.findAnchor(pot.address, p.viHash)
+    if (already) return already
+    const haveCents = Math.round((await tokenBalance(this.ledger, this.infra, pot.address)) * 100)
+    // A missing anchor with a short pot means an earlier submission may still be in flight: wait, never pay twice.
+    if (haveCents < p.amountCents) throw new Error('pot balance is below the purchase amount; waiting for an earlier submission to settle')
+    const credentialId = await ensurePayerCredential(this.ledger, this.service, pot)
     const tx: any = await this.ledger.client.autofill({
       TransactionType: 'Payment',
-      Account: u.account,
+      Account: pot.address,
       Delegate: agent.account,
-      Destination: merchant!.account,
-      Amount: tokenAmount(this.infra, cents(amountCents)),
+      Destination: p.merchantAccount,
+      Amount: tokenAmount(this.infra, cents(p.amountCents)),
+      CredentialIDs: [credentialId],
       Memos: [
-        { Memo: { MemoType: hex('vi/sha256'), MemoData: viHash } },
+        { Memo: { MemoType: hex('vi/sha256'), MemoData: p.viHash } },
         { Memo: { MemoType: hex('agent/did'), MemoData: hex(agent.did) } },
-        ...(auth.evidence?.claimId
-          ? [{ Memo: { MemoType: hex('ap4m/claim'), MemoData: hex(`${auth.evidence.network}:${auth.evidence.claimId}`) } }]
+        ...(p.evidence?.claimId
+          ? [{ Memo: { MemoType: hex('ap4m/claim'), MemoData: hex(`${p.evidence.network}:${p.evidence.claimId}`) } }]
           : []),
       ],
     })
-    const signed = this.agentWallet(agent).sign(tx)
-    const res = await this.ledger.submitSigned(signed.tx_blob)
-    const txHash = res.result.hash
+    const res = await this.ledger.submitSigned(this.agentWallet(agent).sign(tx).tx_blob)
+    return res.result.hash
+  }
 
+  /** Look for an already-validated payment out of the pot carrying this chain hash. */
+  private async findAnchor(pot: string, viHash: string): Promise<string | undefined> {
+    const r = await this.ledger.client.request({ command: 'account_tx', account: pot, limit: 40, ledger_index_min: -1, ledger_index_max: -1 })
+    for (const t of r.result.transactions) {
+      const tx = (t.tx_json ?? (t as { tx?: unknown }).tx) as Record<string, unknown> | undefined
+      const meta = t.meta as { TransactionResult?: string } | string | undefined
+      const ok = typeof meta === 'object' && meta?.TransactionResult === 'tesSUCCESS'
+      if (ok && tx?.TransactionType === 'Payment' && tx.Account === pot && viHashOf(tx as never) === viHash) return (t.hash ?? tx.hash) as string
+    }
+    return undefined
+  }
+
+  /** Record a fully settled purchase: it is now evidence for the score. */
+  private async finalize(u: UserRecord, p: PendingPurchase) {
+    const agent = u.agents[p.agentId]!
     const ts = nowUnix()
-    u.purchases.push({ id: `p_${randomUUID().slice(0, 8)}`, agentId: agent.id, merchant: merchant!.account, amount, mode: v.mode!, viHash, txHash, ts, chain })
-    u.events.push({ type: 'agent_purchase', ts, merchant: merchant!.account, agentId: agent.id, mode: v.mode!, viHash, txHash })
-    agent.spentCents += amountCents
+    const amount = p.amountCents / 100
+    u.purchases.push({
+      id: p.id, agentId: agent.id, merchant: p.merchantAccount, amount, mode: p.mode, viHash: p.viHash, txHash: p.payTx!, ts, chain: p.chain,
+    })
+    u.events.push({ type: 'agent_purchase', ts, merchant: p.merchantAccount, agentId: agent.id, mode: p.mode, viHash: p.viHash, txHash: p.payTx })
+    agent.spentCents += p.amountCents
     if (agent.spentCents >= agent.budgetCents * 0.95) u.events.push({ type: 'mandate', ts, agentId: agent.id, outcome: 'clean_stop' })
+    u.pending = u.pending.filter((x) => x !== p)
     this.pushUtilization(u, await this.creditState(u.id))
     this.store.save()
-    return { txHash, viHash, amount, mode: v.mode!, authorizationId: auth.authorizationId, network: auth.evidence, score: (await this.rescore(u.id)).score }
+    return {
+      txHash: p.payTx!, fundTx: p.fundTx, viHash: p.viHash, amount, mode: p.mode, authorizationId: p.authorizationId,
+      network: p.evidence, score: (await this.rescore(u.id)).score,
+    }
+  }
+
+  /**
+   * Finish purchases that stopped part-way (a crash, a timeout, a ledger hiccup). Safe to run any time and as
+   * often as you like: authorization is idempotent per chain hash and payment checks for an existing anchor first.
+   */
+  async reconcile(minAgeMs = 30_000): Promise<{ resumed: string[]; stranded: string[] }> {
+    const resumed: string[] = []
+    const stranded: string[] = []
+    const cutoff = nowUnix() - Math.floor(minAgeMs / 1000)
+    for (const u of Object.values(this.store.state.users)) {
+      for (const p of [...u.pending]) {
+        if (p.state === 'stranded') { stranded.push(p.id); continue }
+        if (p.updatedAt > cutoff) continue
+        try {
+          await this.withLock(p.agentId, () => this.advance(u, p))
+          resumed.push(p.id)
+        } catch (e) {
+          if ((p as PendingPurchase).state === 'stranded') stranded.push(p.id)
+          void e
+        }
+      }
+    }
+    return { resumed, stranded }
+  }
+
+  /**
+   * Guard for the live feed: a delegated payment out of an agent's pot that matches no approved purchase means
+   * the agent key was used outside the service. Revoke the agent at once.
+   */
+  async guardPotPayment(tx: LedgerPayment): Promise<PotPaymentVerdict | null> {
+    for (const u of Object.values(this.store.state.users)) {
+      const agent = Object.values(u.agents).find((a) => a.pot?.account === tx.Account)
+      if (!agent) continue
+      const verdict = judgePotPayment(tx, agent, u.pending, u.purchases)
+      if (verdict.kind === 'unexpected' && agent.status === 'active') {
+        u.events.push({ type: 'mandate', ts: nowUnix(), agentId: agent.id, outcome: 'refused' })
+        this.alerts.push({ ts: nowUnix(), agentId: agent.id, txHash: tx.hash, reason: verdict.reason })
+        await this.revokeAgent(agent.id)
+      }
+      return verdict
+    }
+    return null
   }
 
   /** Demo path: the agent builds its chain and settles in one call. */
@@ -558,11 +767,14 @@ export class CreditService {
       kyaStatus(this.ledger, u.account, this.service.address),
       currentTier(this.ledger, u.account, this.service.address),
     ])
-    const per = Object.values(u.agents).map((a) => ({
+    const per = await Promise.all(Object.values(u.agents).map(async (a) => ({
       id: a.id, label: a.label, account: a.account, did: a.did, mode: a.mode, status: a.status,
+      spendingAccount: a.pot.account,
+      // What a stolen agent key could reach right now: ~0 between purchases.
+      spendingBalance: await tokenBalance(this.ledger, this.infra, a.pot.account),
       spentUsd: a.spentCents / 100, budgetUsd: a.budgetCents / 100, maxPerPurchaseUsd: a.maxCents / 100,
       purchases: u.purchases.filter((p) => p.agentId === a.id).length,
-    }))
+    })))
     this.store.save()
     return {
       user: { id: u.id, account: u.account, did: u.did, mainnetAccount: u.mainnetAccount, mainnetVerified: u.mainnetVerified },
@@ -574,6 +786,8 @@ export class CreditService {
       agents: per,
       loans: await Promise.all(u.loans.map(async (l) => ({ ...l, state: await readLoan(this.ledger, l.loanId).then((s) => s && { principalOutstanding: s.principalOutstanding, paymentsRemaining: s.paymentsRemaining, nextPaymentDueDate: s.nextPaymentDueDate }) }))),
       purchases: u.purchases.map(({ chain: _c, ...p }) => p),
+      pending: u.pending.map(({ chain: _c, ...p }) => p),
+      alerts: this.alerts.filter((a) => Object.keys(u.agents).includes(a.agentId)),
       breakdown: score.contributions,
     }
   }

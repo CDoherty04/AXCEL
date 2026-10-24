@@ -1,26 +1,36 @@
-import { notImplemented } from "../errors.js";
-import { sendError } from "../http.js";
-import type { Route } from "../router.js";
+import { z } from "zod";
+import { body, json, type RouteFactory } from "./common.js";
 
-/** Will — XRPL lending protocol (devnet origination flows in src/system.ts) */
-export const lendingRoutes: Route[] = [
+export const lendingRoutes: RouteFactory = (holder) => [
+  {
+    method: "GET",
+    pattern: "/api/v1/users/:id/credit",
+    owner: "Will",
+    handler: json((ctx, svc) => svc.creditState(ctx.params.id!), holder),
+  },
   {
     method: "POST",
     pattern: "/api/v1/lending/borrow",
     owner: "Will",
-    handler(ctx) {
-      sendError(
-        ctx.res,
-        notImplemented("Borrow request — wire to CreditSystem in src/system.ts"),
-      );
-    },
+    handler: json(
+      async (ctx, svc) => {
+        const b = await body(ctx, z.object({ userId: z.string(), amount: z.number().positive().optional() }));
+        return svc.borrow(b.userId, b.amount);
+      },
+      holder,
+      201,
+    ),
   },
   {
     method: "POST",
     pattern: "/api/v1/lending/repay",
     owner: "Will",
-    handler(ctx) {
-      sendError(ctx.res, notImplemented("Repayment — wire to CreditSystem.recordRepayment"));
-    },
+    handler: json(async (ctx, svc) => {
+      const b = await body(
+        ctx,
+        z.object({ userId: z.string(), full: z.boolean().optional(), amount: z.number().positive().optional() }),
+      );
+      return svc.repay(b.userId, { full: b.full, amount: b.amount });
+    }, holder),
   },
 ];

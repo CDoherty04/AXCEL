@@ -54,6 +54,7 @@ export function userDocument(user: UserRecord): DidDocument {
         type: 'AgentAccount',
         serviceEndpoint: a.did,
         account: a.account,
+        spendingAccount: a.pot.account,
         mastercardAgentId: a.mastercardAgentId,
         mode: a.mode,
       })),
@@ -76,6 +77,11 @@ export function agentDocument(user: UserRecord, agent: AgentRecord): DidDocument
       },
     ],
     service: [
+      {
+        id: `${agent.did}#spending`,
+        type: 'SpendingAccount',
+        serviceEndpoint: agent.pot.account,
+      },
       {
         id: `${agent.did}#mastercard`,
         type: 'MastercardAgentRegistration',

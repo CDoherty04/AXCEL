@@ -93,7 +93,7 @@ This QuickNode module does **not** map ledger rows to `CreditEvent` yet. Intende
 
 1. `fetchCreditHistory({ account })` → `CreditHistorySnapshot`
 2. Adapter (Caleb/Charlie): map payments to `chain_payment` events (`at` = ms epoch, merchant ids from counterparty / KYA)
-3. Pass events into the existing score + `src/system.ts` origination path
+3. Pass events into the credit-layer service (`src/service.ts`, scoring in `src/scoring/`)
 
 ## AP4M agentic payments (`integrations/ap4m/`)
 
@@ -120,5 +120,5 @@ REST stub: `POST /api/v1/payments/agentic` — wire to SDK or trigger `ap4m-agen
 
 - Devnet / testnet (mainnet QuickNode only)
 - `CreditEvent` adapter and KYA (Caleb)
-- Lending execution (`src/system.ts`, Will)
+- Lending execution (`src/service.ts` and `src/credit/`)
 - UI (Anthony)
