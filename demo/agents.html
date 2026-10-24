@@ -39,8 +39,6 @@
   <section class="wrap intro">
     <h1 class="display t-96">Agent dashboard</h1>
     <p class="t-20 lede">Add agents, let them buy inside their limits, see every purchase, and revoke any agent in one click.</p>
-    <p class="conn small" id="conn-api"><span class="mark wait"></span><span>Checking the AXCEL service…</span></p>
-    <p class="conn small" id="conn-x402"><span class="mark wait"></span><span>Checking the Agent Pay paywall…</span></p>
   </section>
 
   <section class="wrap">
@@ -77,7 +75,7 @@
       <div class="split-copy">
         <h2 class="sec">Add an agent</h2>
         <p class="t-32 display">Set its mandate once.</p>
-        <p class="small">Needs your identity credential (step 2 on Get your score). Register merchants first to get their IDs.</p>
+        <p class="small">Needs your identity credential (step 2 on Get your score). Leave the limits blank for no cap beyond your credit line.</p>
       </div>
       <div class="split-body">
         <div class="term">
@@ -94,11 +92,9 @@
               </div>
             </div>
             <div class="field-row">
-              <div class="field"><label for="a-max">Max per purchase ($)</label><input id="a-max" name="max" type="number" min="1" step="0.01" required placeholder="50"></div>
-              <div class="field"><label for="a-budget">Total budget ($)</label><input id="a-budget" name="budget" type="number" min="1" step="0.01" required placeholder="150"></div>
+              <div class="field"><label for="a-max">Max per purchase ($)</label><input id="a-max" name="max" type="number" min="1" step="0.01" placeholder="Optional"></div>
+              <div class="field"><label for="a-budget">Total budget ($)</label><input id="a-budget" name="budget" type="number" min="1" step="0.01" placeholder="Optional"></div>
             </div>
-            <div class="field"><label for="a-merchants">Merchants it may pay</label><input id="a-merchants" name="merchants" required list="merchant-ids" placeholder="Merchant IDs, separated by commas"></div>
-            <div class="field"><label for="a-items">What it may buy</label><input id="a-items" name="items" required placeholder="Paper, Ink"></div>
             <pre class="term-cmd"></pre>
             <p><button class="btn primary" type="submit">Add agent</button></p>
             <p class="result" aria-live="polite"></p>
@@ -135,6 +131,27 @@
           </table>
         </div>
         <datalist id="merchant-ids"></datalist>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="run">
+      <div class="split-copy">
+        <h2 class="sec">Run an agent</h2>
+        <p class="t-32 display">Give it a task. It shops inside its mandate.</p>
+        <p class="small">An OpenAI agent reads its mandate and buys through the same protocol path as any purchase. An out-of-mandate attempt is refused and scored; Revoke stops it for good.</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ agent</span></div>
+          <form class="form term-body" id="f-run">
+            <div class="field"><label for="r-agent">Agent</label><select id="r-agent" name="agent" required><option value="">Connect your wallet first</option></select></div>
+            <div class="field"><label for="r-task">Task</label><input id="r-task" name="task" required maxlength="500" placeholder="Restock the office: buy paper and ink"></div>
+            <p><button class="btn primary" type="submit">Run agent</button></p>
+            <p class="result" id="run-log" aria-live="polite"></p>
+          </form>
+        </div>
       </div>
     </div>
   </section>

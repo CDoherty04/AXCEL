@@ -175,7 +175,7 @@ h2.sec::before { content: ""; position: absolute; top: 0; left: 0; height: 6px; 
 .after { margin: 24px 0 0; }
 
 /* Tables over cards */
-.table-scroll { overflow: hidden; max-width: 100%; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
 table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 15px; }
 thead th { background: var(--tint); text-align: left; font-weight: 600; font-size: 14px; padding: 12px 16px; white-space: nowrap; }
 tbody td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
@@ -315,3 +315,10 @@ tr.new td { animation: rowin .35s ease; }
   .about-menu { animation: none; }
   .ribbon-track { animation: none; }
 }
+
+/* Fleet table: fits the column instead of scrolling sideways. */
+#fleet .table-scroll { overflow-x: visible; }
+#fleet table { min-width: 0; table-layout: auto; font-size: 14px; }
+#fleet thead th, #fleet td { padding: 10px 8px; white-space: normal; overflow-wrap: anywhere; }
+#fleet td.status { white-space: nowrap; }
+#fleet td:last-child, #fleet th:last-child { padding-right: 0; }

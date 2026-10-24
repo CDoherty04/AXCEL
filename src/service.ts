@@ -40,12 +40,17 @@ export interface AgentOptions {
   label: string
   mode: 'immediate' | 'autonomous'
   /** Per-purchase cap in USD cents. For autonomous agents this is the L2 payment.amount max. */
-  maxCents: number
+  maxCents?: number
   /** Total this agent may spend, USD cents. */
-  budgetCents: number
-  merchantIds: string[]
-  items: Item[]
+  budgetCents?: number
+  /** Defaults to every registered merchant (a default one is registered when none exist). */
+  merchantIds?: string[]
+  /** Defaults to a generic "Purchase" item. */
+  items?: Item[]
 }
+
+/** When a limit is left blank it falls back to the other one, then to the top tier's credit line. */
+const DEFAULT_LIMIT_CENTS = 100_000
 
 export interface CreditState {
   tier: Tier | null
@@ -360,10 +365,21 @@ export class CreditService {
     return { userId: id, ...agent }
   }
 
-  async addAgent(userId: string, opts: AgentOptions): Promise<PublicAgent> {
+  async addAgent(userId: string, input: AgentOptions): Promise<PublicAgent> {
     const u = this.store.user(userId)
     const kya = await kyaStatus(this.ledger, u.account, this.service.address)
     if (!kya.valid) throw new HttpError(403, 'owner must hold a valid KYA-Verified credential before linking agents')
+    let merchantIds = input.merchantIds?.length ? input.merchantIds : Object.keys(this.store.state.merchants)
+    if (!merchantIds.length) {
+      merchantIds = [(await this.registerMerchant({ name: 'Agent Pay', website: 'https://hackathon.ap4m.build' })).id]
+    }
+    const opts = {
+      ...input,
+      maxCents: input.maxCents ?? input.budgetCents ?? DEFAULT_LIMIT_CENTS,
+      budgetCents: input.budgetCents ?? input.maxCents ?? DEFAULT_LIMIT_CENTS,
+      merchantIds,
+      items: input.items?.length ? input.items : [{ id: 'purchase', title: 'Purchase' }],
+    }
     const merchants = opts.merchantIds.map((id) => this.vim(this.merchant(id)))
     const wallet = await this.ledger.fund()
     const viKey = await this.d.vi.keygen()
@@ -671,6 +687,37 @@ export class CreditService {
       return verdict
     }
     return null
+  }
+
+  /** What an agent may do right now; backs the LLM agent's get_mandate tool. */
+  agentBrief(agentId: string) {
+    const { agent } = this.agentOf(agentId)
+    return {
+      id: agent.id, label: agent.label, status: agent.status, mode: agent.mode,
+      merchants: agent.merchants.map((m) => ({ id: m.id, name: m.name })),
+      items: this.openItems(agent) ? ['anything: any goods or services'] : agent.items.map((i) => i.title),
+      maxPerPurchaseUsd: agent.maxCents / 100,
+      remainingBudgetUsd: (agent.budgetCents - agent.spentCents) / 100,
+    }
+  }
+
+  /** A mandate whose only item is the generic "Purchase" places no limit on what is bought. */
+  private openItems(agent: AgentRecord): boolean {
+    return agent.items.length === 1 && agent.items[0]!.id === 'purchase'
+  }
+
+  /** The mandate item a described purchase is filed under; open mandates take anything. */
+  resolveItem(agentId: string, text: string): Item {
+    const { agent } = this.agentOf(agentId)
+    if (this.openItems(agent)) return agent.items[0]!
+    const t = text.trim().toLowerCase()
+    return agent.items.find((i) => i.title.toLowerCase() === t) ?? { id: t.replace(/[^a-z0-9]+/g, '-'), title: text }
+  }
+
+  async agentBriefWithCredit(agentId: string) {
+    const { user } = this.agentOf(agentId)
+    const credit = await this.creditState(user.id)
+    return { ...this.agentBrief(agentId), ownerCreditAvailableUsd: credit.available }
   }
 
   /** Demo path: the agent builds its chain and settles in one call. */

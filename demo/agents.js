@@ -50,8 +50,9 @@
 
     $("b-agent").innerHTML = active.length
       ? active.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.label) + " (" + a.mode + ", up to " + money(a.maxPerPurchaseUsd) + ")</option>"; }).join("")
-      : '<option value="">' + (p ? "No active agents" : "Connect your wallet first") + "</option>";
+      : '<option value="">' + (p ? "No active agents. Add one above" : !load("axcel.wallet") ? "Connect your wallet first" : !userId ? "Add your first agent above" : "Couldn't load agents (is npm run api running?)") + "</option>";
     buy.render();
+    $("r-agent").innerHTML = $("b-agent").innerHTML;
 
     var label = {};
     agents.forEach(function (a) { label[a.id] = a.label; });
@@ -113,15 +114,28 @@
   }
 
   // ---- terminals ----
+  // A wallet's profile is created with its first agent (same call as Get your score), which also verifies the
+  // owner and registers a default merchant. After that, agents carry their own merchants and items.
   var add = AxcelTerm.mount({
-    form: $("f-agent"), base: API, check: needUser,
+    form: $("f-agent"), base: API,
     spec: function (f) {
-      return [{ method: "POST", path: "/users/" + uid() + "/agents", body: {
-        label: f.label.value.trim(), mode: f.mode.value, maxCents: cents(f.max.value), budgetCents: cents(f.budget.value),
-        merchantIds: list(f.merchants.value), items: list(f.items.value).map(function (t) { return { id: slug(t), title: t }; })
+      var max = cents(f.max.value), budget = cents(f.budget.value), limit = budget || max || 100000;
+      var label = f.label.value.trim();
+      if (!userId) return [{ method: "POST", path: "/agents/simple", body: { label: label, limitCents: limit }, note: "First agent: creates your profile" }];
+      return [{ method: "POST", path: "/users/" + userId + "/agents", body: {
+        label: label, mode: f.mode.value, maxCents: max || limit, budgetCents: budget || limit, merchantIds: [], items: []
       } }];
     },
-    done: function (f, r) { return "Agent " + r.label + " added with its own spending account " + short(r.pot && r.pot.account) + "."; },
+    check: function () { return load("axcel.wallet") ? null : "connect your wallet first."; },
+    done: function (f, r) {
+      if (r && r.userId && !userId) {
+        var w = load("axcel.wallet");
+        var users = load("axcel.users") || {};
+        if (w) { users[w.address] = r.userId; save("axcel.users", users); }
+        userId = r.userId;
+      }
+      return "Agent " + r.label + " added with its own spending account " + short(r.pot && r.pot.account) + ".";
+    },
     after: refresh
   });
 
@@ -148,6 +162,41 @@
     },
     done: function (f, r) { return r && r.txHash ? "Settled on XRPL: " + short(r.txHash) + "." : "Submitted. Settlement may still be finishing; Refresh shows its state."; },
     after: refresh
+  });
+
+  // ---- Claude-driven agent runs ----
+  var runTimer = null;
+  function logStep(s) {
+    var cls = { error: "t-err", result: "t-ok", final: "t-ok", thought: "t-dim", tool: "t-json" }[s.kind] || "";
+    var line = document.createElement("span");
+    line.className = cls;
+    line.textContent = (s.kind === "tool" ? "$ " : s.kind === "final" ? "# " : "") + s.text + "\n";
+    $("run-log").appendChild(line);
+  }
+  $("f-run").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = e.target, btn = f.querySelector("button[type=submit]"), log = $("run-log");
+    log.textContent = "";
+    var problem = needUser() || (!f.agent.value ? "pick an agent (add one above first)." : null);
+    if (problem) { logStep({ kind: "error", text: "error: " + problem }); return; }
+    btn.disabled = true;
+    function fail(msg) { logStep({ kind: "error", text: "error: " + msg }); btn.disabled = false; }
+    fetch(API + "/agents/" + encodeURIComponent(f.agent.value) + "/run", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task: f.task.value.trim() })
+    }).then(function (res) {
+      return res.json().then(function (r) { if (!res.ok) throw new Error(r.error || "HTTP " + res.status); return r; });
+    }).then(function (run) {
+      var seen = 0;
+      (function poll() {
+        fetch(API + "/runs/" + run.id).then(function (r) { return r.json(); }).then(function (r) {
+          r.steps.slice(seen).forEach(logStep);
+          seen = r.steps.length;
+          if (r.state === "running") { runTimer = setTimeout(poll, 1000); return; }
+          btn.disabled = false;
+          refresh();
+        }, function () { fail("lost contact with the service"); });
+      })();
+    }, function (err) { fail(/fetch/i.test(err.message) ? "The AXCEL service isn't running (npm run api)." : err.message); });
   });
 
   // Agent Pay for Machines paywall
@@ -220,18 +269,6 @@
     spec: function (f) { return [{ method: "POST", path: "/payments/network/settle", body: f.close.checked ? { close: true } : {} }]; },
     done: function () { return "Channel settled."; }
   });
-
-  // ---- service status ----
-  function status(id, ok, text) {
-    $(id).querySelector(".mark").className = "mark " + (ok ? "ok" : "due");
-    $(id).lastElementChild.textContent = text;
-  }
-  fetch(API + "/health").then(function (r) { if (!r.ok) throw 0; }).then(
-    function () { status("conn-api", true, "AXCEL service connected."); },
-    function () { status("conn-api", false, "AXCEL service not running (npm run api). Agents, buying and activity need it."); });
-  fetch(X402 + "/x402/resources/briefing").then(function (r) { if (r.status !== 402 && !r.ok) throw 0; }).then(
-    function () { status("conn-x402", true, "Agent Pay paywall connected."); },
-    function () { status("conn-x402", false, "Agent Pay paywall not running (npm run x402). Pay per use needs it."); });
 
   document.addEventListener("axcel:wallet", refresh);
   renderMerchants();

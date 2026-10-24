@@ -1,6 +1,9 @@
 import { z } from "zod";
 import type { AuthorizationResult } from "../../mastercard/agentPay.js";
+import { AgentRunner } from "../../agents/runner.js";
+import type { CreditService } from "../../service.js";
 import type { ViChain } from "../../vi/bridge.js";
+import { notFound } from "../errors.js";
 import { body, json, type RouteFactory } from "./common.js";
 
 const networkClaim = z.object({
@@ -28,7 +31,33 @@ function priorAuth(claim: z.infer<typeof networkClaim> | undefined): Authorizati
 const item = z.object({ id: z.string(), title: z.string() });
 const chain = z.object({ l1: z.string(), l2: z.string(), l3a: z.string().optional(), l2Payment: z.string().optional() });
 
+const runners = new WeakMap<CreditService, AgentRunner>();
+const runnerFor = (svc: CreditService) => {
+  let r = runners.get(svc);
+  if (!r) runners.set(svc, (r = new AgentRunner(svc)));
+  return r;
+};
+
 export const paymentsRoutes: RouteFactory = (holder) => [
+  {
+    // Start a Claude-driven agent on a task; it buys through the same protocol path as any other purchase.
+    method: "POST",
+    pattern: "/api/v1/agents/:id/run",
+    owner: "Caleb",
+    handler: json(async (ctx, svc) => runnerFor(svc).start(ctx.params.id!, (await body(ctx, z.object({ task: z.string().min(1).max(500) }))).task), holder, 202),
+  },
+  {
+    method: "GET",
+    pattern: "/api/v1/agents/:id/runs",
+    owner: "Caleb",
+    handler: json((ctx, svc) => runnerFor(svc).list(ctx.params.id!), holder),
+  },
+  {
+    method: "GET",
+    pattern: "/api/v1/runs/:id",
+    owner: "Caleb",
+    handler: json((ctx, svc) => runnerFor(svc).get(ctx.params.id!) ?? (() => { throw notFound("unknown run"); })(), holder),
+  },
   {
     method: "POST",
     pattern: "/api/v1/users/:id/agents",
@@ -42,10 +71,10 @@ export const paymentsRoutes: RouteFactory = (holder) => [
             z.object({
               label: z.string(),
               mode: z.enum(["immediate", "autonomous"]),
-              maxCents: z.number().int().positive(),
-              budgetCents: z.number().int().positive(),
-              merchantIds: z.array(z.string()).min(1),
-              items: z.array(item).min(1),
+              maxCents: z.number().int().positive().optional(),
+              budgetCents: z.number().int().positive().optional(),
+              merchantIds: z.array(z.string()).optional(),
+              items: z.array(item).optional(),
             }),
           ),
         ),
