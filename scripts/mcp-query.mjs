@@ -27,7 +27,7 @@ const rpc = (method, params) =>
     p.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n')
   })
 
-await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bec', version: '0.1' } })
+await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'axcel', version: '0.1' } })
 p.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n')
 const out = cmd === 'list' ? await rpc('tools/list', {}) : await rpc('tools/call', { name: tool, arguments: JSON.parse(argsJson ?? '{}') })
 console.log(JSON.stringify(out.result ?? out.error, null, 1))

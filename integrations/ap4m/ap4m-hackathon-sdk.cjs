@@ -1,6 +1,6 @@
 /**
  * AP4M Hackathon SDK — FOR HACKATHON USE ONLY
- * Split from Mastercard participant kit for BEC (agentic payments track).
+ * Split from Mastercard participant kit for AXCEL (agentic payments track).
  */
 
 'use strict';

@@ -54,7 +54,7 @@ const catalogRoutes = [
     pattern: "/api/v1",
     handler(ctx: import("./router.js").RouteContext) {
       sendJson(ctx.res, 200, {
-        name: "bec-api",
+        name: "axcel-api",
         version: "0.1.0",
         routes: listRouteCatalog(routes),
       });
@@ -71,11 +71,11 @@ const server = createServer((req, res) => {
 function logListening(server: Server): void {
   const addr = server.address();
   if (!addr || typeof addr === "string") {
-    console.log(`bec-api listening on ${addr ?? HOST}`);
+    console.log(`axcel-api listening on ${addr ?? HOST}`);
     return;
   }
   const base = `http://${addr.address}:${addr.port}`;
-  console.log(`bec-api listening on ${base}`);
+  console.log(`axcel-api listening on ${base}`);
   console.log(`  GET ${base}/api/v1`);
   console.log(`  GET ${base}/api/v1/credit-history/:account?limit=50`);
 }
