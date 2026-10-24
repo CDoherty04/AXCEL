@@ -1,0 +1,3 @@
+[submodule "vendor/verifiable-intent"]
+	path = vendor/verifiable-intent
+	url = https://github.com/agent-intent/verifiable-intent

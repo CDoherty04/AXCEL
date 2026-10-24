@@ -1,0 +1,29 @@
+{
+  "name": "agentic-credit-layer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agentic credit layer on XRPL + Mastercard Agent Pay",
+  "scripts": {
+    "build": "tsc -p .",
+    "typecheck": "tsc -p . --noEmit",
+    "test": "vitest run",
+    "dev": "tsx src/api/creditLayerServer.ts",
+    "demo": "tsx scripts/demo.ts",
+    "bootstrap": "tsx scripts/bootstrap.ts",
+    "vi:smoke": ".venv/Scripts/python vi_bridge/smoke.py"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "ripple-keypairs": "^3.1.0",
+    "xrpl": "^5.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
