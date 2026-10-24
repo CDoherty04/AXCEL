@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AXCEL: get your score</title>
+<meta name="description" content="Link your account, get your score, borrow, add agents and repay.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112..125,700..900&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400..600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logos/axcel-mark.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="band">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="logos/axcel.svg" alt="AXCEL"></a>
+    <nav aria-label="Main">
+      <div class="about">
+        <button class="about-btn" type="button" aria-expanded="false" aria-controls="about-menu">About <span class="chev" aria-hidden="true"></span></button>
+        <div class="about-menu" id="about-menu" hidden>
+          <a href="index.html#how">How it works</a>
+          <a href="index.html#breakdown">Score</a>
+          <a href="index.html#credit">Credit</a>
+          <a href="index.html#agents">Agents</a>
+          <a href="index.html#repay">Repay</a>
+        </div>
+      </div>
+      <div class="about page-group">
+        <button class="about-btn" type="button" aria-expanded="false" aria-controls="score-menu">Get your score <span class="chev" aria-hidden="true"></span></button>
+        <div class="about-menu" id="score-menu" hidden>
+          <a href="#top">Score</a>
+          <a href="#link">Link</a>
+          <a href="#verify">Verify</a>
+          <a href="#borrow">Borrow</a>
+          <a href="#agents">Agents</a>
+          <a href="#repay">Repay</a>
+        </div>
+      </div>
+    </nav>
+    <div class="wallet"><button class="btn light small-btn" id="wallet-btn" type="button">Connect wallet</button></div>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="wrap intro">
+    <h1 class="display t-96">Get your score</h1>
+    <p class="t-20 lede">Link your account, see your score, then borrow and put your agents to work.</p>
+    <p class="conn small" id="conn"><span class="mark wait"></span><span id="conn-text">Checking the AXCEL service…</span></p>
+    <p class="small" id="profile-line" hidden>Profile <span class="mono" id="profile-id"></span> · <button class="linkish" type="button" id="reset">Start over</button></p>
+  </section>
+
+  <section class="wrap">
+    <div class="hero" aria-label="Your score and credit used">
+      <div class="score-plane">
+        <p class="hero-label">Score</p>
+        <p class="display t-176" id="card-score">—</p>
+        <span class="tier" id="card-tier">No tier yet</span>
+      </div>
+      <div class="credit-plane">
+        <div>
+          <p class="hero-label">Credit used</p>
+          <div class="used-row">
+            <p class="display t-96" id="card-used">$0</p>
+            <p class="t-20 muted">of $<span id="card-limit">0</span></p>
+          </div>
+        </div>
+        <div>
+          <div class="bar" id="card-bar" role="img" aria-label="Credit used by agent"></div>
+          <div class="legend" id="card-legend"></div>
+        </div>
+        <p class="small" id="card-note">Connect your wallet to see your score.</p>
+        <div class="btn-row">
+          <button class="btn primary" id="card-connect" type="button">Connect wallet</button>
+          <button class="btn" id="card-refresh" type="button" hidden>Refresh</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="link">
+      <div class="split-copy">
+        <h2 class="sec">1. Link your account</h2>
+        <p class="t-32 display">Your history is your head start.</p>
+        <p class="small">We only score accounts you can sign for.</p>
+      </div>
+      <div class="split-body">
+        <div class="term" id="f-link-term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ link</span></div>
+          <form class="form term-body" id="f-link">
+          <div class="field">
+            <label for="mainnet">Your XRPL Mainnet address</label>
+            <input id="mainnet" name="mainnet" required placeholder="r…" autocomplete="off" spellcheck="false">
+          </div>
+          <pre class="term-cmd"></pre>
+          <p><button class="btn primary" type="submit">Get my challenge</button></p>
+          <p class="result" aria-live="polite"></p>
+        </form>
+        </div>
+        <div class="term" hidden id="f-confirm-term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ confirm</span></div>
+          <form class="form term-body" id="f-confirm">
+          <div class="field">
+            <label>Sign this message with both keys</label>
+            <pre class="challenge" id="challenge"></pre>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="m-sig">Mainnet signature</label><input id="m-sig" name="mSig" required spellcheck="false"></div>
+            <div class="field"><label for="m-pub">Mainnet public key</label><input id="m-pub" name="mPub" required spellcheck="false"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="d-sig">Devnet signature</label><input id="d-sig" name="dSig" required spellcheck="false"></div>
+            <div class="field"><label for="d-pub">Devnet public key</label><input id="d-pub" name="dPub" required spellcheck="false"></div>
+          </div>
+          <pre class="term-cmd"></pre>
+          <p><button class="btn primary" type="submit">Confirm ownership</button></p>
+          <p class="result" aria-live="polite"></p>
+        </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="verify">
+      <div class="split-copy">
+        <h2 class="sec">2. Verify your identity</h2>
+        <p class="t-32 display">A real person behind every agent.</p>
+        <p class="small">Only a credential goes on the ledger, not your details.</p>
+      </div>
+      <div class="split-body">
+        <div class="term" id="f-kya-term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ verify</span></div>
+          <form class="form term-body" id="f-kya">
+          <div class="field"><label for="legal">Legal name</label><input id="legal" name="legalName" required autocomplete="name"></div>
+          <div class="field-row">
+            <div class="field"><label for="country">Country</label><input id="country" name="country" required placeholder="US" autocomplete="country"></div>
+            <div class="field"><label for="doc">Document ID</label><input id="doc" name="documentId" required autocomplete="off"></div>
+          </div>
+          <pre class="term-cmd"></pre>
+          <p><button class="btn primary" type="submit">Verify</button></p>
+          <p class="result" aria-live="polite"></p>
+        </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="score">
+      <div class="split-copy">
+        <h2 class="sec">3. See your score</h2>
+        <p class="t-32 display">One score. Every agent.</p>
+        <p class="small">Read from your ledger history.</p>
+      </div>
+      <div class="split-body">
+        <div class="term" id="f-score-term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ score</span></div>
+          <form class="form term-body" id="f-score">
+          <pre class="term-cmd"></pre>
+          <p><button class="btn primary" type="submit">Read my history</button></p>
+          <div class="score-out" id="score-out" hidden>
+            <p class="display t-96" id="score-num"></p>
+            <span class="tier" id="score-tier"></span>
+          </div>
+          <p class="result" aria-live="polite"></p>
+        </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="borrow">
+      <div class="split-copy">
+        <h2 class="sec">4. Borrow</h2>
+        <p class="t-32 display">Your tier sets your line.</p>
+        <p class="small">Leave the amount blank to draw your full line.</p>
+      </div>
+      <div class="split-body">
+        <div class="term" id="f-borrow-term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ borrow</span></div>
+          <form class="form term-body" id="f-borrow">
+          <div class="field"><label for="borrow-amt">Amount ($)</label><input id="borrow-amt" name="amount" type="number" min="1" step="1" placeholder="Full line"></div>
+          <pre class="term-cmd"></pre>
+          <p><button class="btn primary" type="submit">Borrow</button></p>
+          <p class="result" aria-live="polite"></p>
+        </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="agents">
+      <div class="split-copy">
+        <h2 class="sec">5. Add an agent</h2>
+        <p class="t-32 display">Each agent has its own limit.</p>
+        <p class="small">It can spend from your line, never your keys.</p>
+      </div>
+      <div class="split-body">
+        <div class="term" id="f-agent-term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ agents</span></div>
+          <form class="form term-body" id="f-agent">
+          <div class="field-row">
+            <div class="field"><label for="a-label">Agent name</label><input id="a-label" name="label" required placeholder="Shopper"></div>
+            <div class="field">
+              <label for="a-mode">Mode</label>
+              <select id="a-mode" name="mode">
+                <option value="immediate">Immediate: I approve each order</option>
+                <option value="autonomous">Autonomous: it buys within limits</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="a-max">Max per purchase ($)</label><input id="a-max" name="max" type="number" min="1" step="0.01" required placeholder="50"></div>
+            <div class="field"><label for="a-budget">Total budget ($)</label><input id="a-budget" name="budget" type="number" min="1" step="0.01" required placeholder="150"></div>
+          </div>
+          <div class="field"><label for="a-merchants">Merchants it may pay</label><input id="a-merchants" name="merchants" required placeholder="Merchant IDs, separated by commas"></div>
+          <div class="field"><label for="a-items">What it may buy</label><input id="a-items" name="items" required placeholder="Paper, Ink"></div>
+          <pre class="term-cmd"></pre>
+          <p><button class="btn primary" type="submit">Add agent</button></p>
+          <p class="result" aria-live="polite"></p>
+        </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="repay">
+      <div class="split-copy">
+        <h2 class="sec">6. Repay</h2>
+        <p class="t-32 display">Pay on time. Move up.</p>
+        <p class="small">Early payoff counts as on time.</p>
+      </div>
+      <div class="split-body">
+        <div class="term" id="f-repay-term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ repay</span></div>
+          <form class="form term-body" id="f-repay">
+          <div class="field"><label for="repay-amt">Amount ($)</label><input id="repay-amt" name="amount" type="number" min="0.01" step="0.01" placeholder="Next installment"></div>
+          <label class="check"><input type="checkbox" name="full"> Pay off the whole balance</label>
+          <pre class="term-cmd"></pre>
+          <p><button class="btn primary" type="submit">Repay</button></p>
+          <p class="result" aria-live="polite"></p>
+        </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="band foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <span class="brand"><img src="logos/axcel.svg" alt="AXCEL"></span>
+      </div>
+      <div>
+        <p class="foot-h">Product</p>
+        <a href="index.html#breakdown">Score</a>
+        <a href="index.html#credit">Credit</a>
+        <a href="index.html#agents">Agents</a>
+        <a href="index.html#repay">Repay</a>
+        <a href="index.html#how">How it works</a>
+      </div>
+      <div class="foot-logos">
+        <p class="foot-h">Built on</p>
+        <img src="logos/xrpl-white.svg" alt="XRPL">
+        <span class="lockup"><img src="logos/rlusd.png" alt="RLUSD"><img class="ripple-text" src="logos/ripple-text-white.svg" alt="Ripple"></span>
+        <img class="mastercard" src="logos/mastercard-white.svg" alt="Mastercard Agent Pay">
+        <img class="quicknode" src="logos/quicknode-white.svg" alt="QuickNode">
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="get-score.js"></script>
+<script src="nav.js"></script>
+<script src="wallet.js"></script>
+<script src="reveal.js"></script>
+</body>
+</html>
