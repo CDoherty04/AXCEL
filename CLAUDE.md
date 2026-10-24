@@ -312,7 +312,7 @@ How the two ledgers fit together:
 - `settleNetwork({ close })` on the service settles and closes the channel.
 - `npx tsx scripts/ap4m-check.ts` is a read-only readiness check (sign-in, allocation, payout wallet, gas).
 
-Status: sign-in, service config, allocation (20 RLUSD, active) and the merchant payout wallet are verified live. **Not yet exercised live:** channel open and voucher redemption, because the agent wallet has no gas on the EVM testnet (fund it at https://faucet.testevm.ripple.com). The adapter is covered against an SDK double (`test-layer/ap4m.test.ts`).
+Status: sign-in, service config, allocation (20 RLUSD, active) and the merchant payout wallet are verified live. **Not yet exercised live:** channel open and voucher redemption, because the agent wallet has no gas on the EVM testnet (fund it at https://faucet.testevm.ripple.com). The adapter is covered against an SDK double (`test/ap4m.test.ts`).
 
 ### Single backend
 
