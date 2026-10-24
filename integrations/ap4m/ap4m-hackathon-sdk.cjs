@@ -163,17 +163,51 @@ async function closeChannel(apiUrl, teamToken, agentWallet, channelId) {
   return data;
 }
 
+async function readJsonResponse(resp, label) {
+  const text = await resp.text();
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error(`${label} failed (${resp.status}): empty response body`);
+  }
+  if (trimmed.startsWith('<')) {
+    throw new Error(
+      `${label} failed (${resp.status}): service returned HTML (gateway/outage?). Retry in a minute. Body starts: ${trimmed.slice(0, 80)}…`,
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`${label} failed (${resp.status}): non-JSON body: ${trimmed.slice(0, 200)}`);
+  }
+}
+
 async function settle(apiUrl, teamToken, channelId) {
   for (let attempt = 0; ; attempt++) {
-    const resp = await fetch(`${apiUrl}/public/participant/settle`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${teamToken}`,
-      },
-      body: JSON.stringify(channelId ? { channel_id: channelId } : {}),
-    });
-    const data = await resp.json();
+    let resp;
+    try {
+      resp = await fetch(`${apiUrl}/public/participant/settle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${teamToken}`,
+        },
+        body: JSON.stringify(channelId ? { channel_id: channelId } : {}),
+      });
+    } catch (err) {
+      if (attempt >= 5) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      continue;
+    }
+
+    let data;
+    try {
+      data = await readJsonResponse(resp, 'settle');
+    } catch (err) {
+      if (attempt >= 5) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      continue;
+    }
+
     if (!resp.ok) throw new Error(`settle failed (${resp.status}): ${data.error ?? JSON.stringify(data)}`);
     if (resp.status !== 202) return data;
     if (attempt >= 40) throw new Error(`settle: payout ${data.payout_tx} is still waiting for confirmations`);
