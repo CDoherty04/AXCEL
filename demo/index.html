@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BEC: credit for your agents</title>
+<title>AXCEL: credit for your agents</title>
 <meta name="description" content="One credit score for you and every agent you run. Borrow on XRPL, spend through Mastercard Agent Pay.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,13 +14,13 @@
 
 <header class="band">
   <div class="wrap">
-    <a class="brand" href="#top">BEC</a>
+    <a class="brand" href="#top">AXCEL</a>
     <nav aria-label="Main">
       <a href="#breakdown">Score</a>
       <a href="#credit">Credit</a>
       <a href="#agents">Agents</a>
       <a href="#repay">Repay</a>
-      <a href="#how">How it works</a>
+      <a class="page-link" href="how-it-works.html">How it works <span aria-hidden="true">→</span></a>
     </nav>
     <span class="net">Devnet</span>
     <span class="sample">Sample data</span>
@@ -36,7 +36,7 @@
     <p class="t-20 lede">One score for you. One credit line for all your agents.</p>
     <p class="cta-row">
       <a class="btn primary" href="#start">Get your score</a>
-      <a class="btn" href="#how">See how it works</a>
+      <a class="btn" href="how-it-works.html">See how it works</a>
     </p>
   </section>
 
@@ -77,10 +77,10 @@
     <div class="built">
       <p class="small">Built on</p>
       <ul>
-        <li>XRPL</li>
-        <li>RLUSD</li>
-        <li>Mastercard Agent Pay</li>
-        <li>QuickNode</li>
+        <li><img src="logos/xrpl.svg" alt="XRPL"></li>
+        <li class="lockup"><img src="logos/rlusd.png" alt="RLUSD"><img class="ripple-text" src="logos/ripple-text.svg" alt="Ripple"></li>
+        <li><img class="mastercard" src="logos/mastercard.svg" alt="Mastercard Agent Pay"></li>
+        <li><img class="quicknode" src="logos/quicknode.svg" alt="QuickNode"></li>
       </ul>
     </div>
   </section>
@@ -201,33 +201,12 @@
     </div>
   </section>
 
-  <section class="wrap">
-    <div class="split" id="how">
-      <div class="split-copy">
-        <h2 class="sec">How it works</h2>
-      </div>
-      <div class="split-body">
-        <div class="table-scroll">
-          <table class="steps">
-            <tbody>
-              <tr><td class="step">1</td><td>Prove your account</td><td class="small">Mainnet</td></tr>
-              <tr><td class="step">2</td><td>Get a tier credential</td><td class="small">Devnet</td></tr>
-              <tr><td class="step">3</td><td>Borrow</td><td class="small">Devnet</td></tr>
-              <tr><td class="step">4</td><td>Agents spend</td><td class="small">Agent Pay</td></tr>
-              <tr><td class="step">5</td><td>Repay and rescore</td><td class="small">Devnet</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <section class="wrap" id="start">
     <div class="closer">
       <h2 class="display t-96">Start with your history</h2>
       <p class="cta-row">
         <a class="btn primary" href="#top">Get your score</a>
-        <a class="btn" href="#how">See how it works</a>
+        <a class="btn" href="how-it-works.html">See how it works</a>
       </p>
     </div>
   </section>
@@ -238,7 +217,7 @@
   <div class="wrap">
     <div class="foot-grid">
       <div>
-        <span class="brand">BEC</span>
+        <span class="brand">AXCEL</span>
         <p class="small-on-ink">Devnet. Sample data.</p>
       </div>
       <div>
@@ -247,18 +226,20 @@
         <a href="#credit">Credit</a>
         <a href="#agents">Agents</a>
         <a href="#repay">Repay</a>
+        <a href="how-it-works.html">How it works</a>
       </div>
-      <div>
+      <div class="foot-logos">
         <p class="foot-h">Built on</p>
-        <span>XRPL</span>
-        <span>RLUSD</span>
-        <span>Mastercard Agent Pay</span>
-        <span>QuickNode</span>
+        <img src="logos/xrpl-white.svg" alt="XRPL">
+        <span class="lockup"><img src="logos/rlusd.png" alt="RLUSD"><img class="ripple-text" src="logos/ripple-text-white.svg" alt="Ripple"></span>
+        <img class="mastercard" src="logos/mastercard-white.svg" alt="Mastercard Agent Pay">
+        <img class="quicknode" src="logos/quicknode-white.svg" alt="QuickNode">
       </div>
     </div>
   </div>
 </footer>
 
 <script src="app.js"></script>
+<script src="reveal.js"></script>
 </body>
 </html>

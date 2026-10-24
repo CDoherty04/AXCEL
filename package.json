@@ -1,5 +1,5 @@
 {
-  "name": "bec",
+  "name": "axcel",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -29,5 +29,5 @@
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   },
-  "description": "BEC: agentic credit layer on XRPL + Mastercard Agent Pay"
+  "description": "AXCEL: agentic credit layer on XRPL + Mastercard Agent Pay"
 }

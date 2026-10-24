@@ -1,6 +1,6 @@
 # Agents — QuickNode mainnet credit history (Charlie)
 
-BEC uses on-chain **mainnet** XRPL activity as the seed dataset for an initial credit profile. This repo slice is **mainnet-only** (single QuickNode HTTP endpoint).
+AXCEL uses on-chain **mainnet** XRPL activity as the seed dataset for an initial credit profile. This repo slice is **mainnet-only** (single QuickNode HTTP endpoint).
 
 ## Env
 

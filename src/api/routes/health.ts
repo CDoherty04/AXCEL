@@ -8,7 +8,7 @@ export const healthRoutes: Route[] = [
     handler(ctx) {
       sendJson(ctx.res, 200, {
         ok: true,
-        service: "bec-api",
+        service: "axcel-api",
         version: "0.1.0",
       });
     },

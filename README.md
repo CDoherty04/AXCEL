@@ -1,5 +1,5 @@
-# BEC
-Bacon Egg and Chain
+# AXCEL
+Agent XRPL Credit Exchange Layer
 
 ## QuickNode Mainnet Backlog
 

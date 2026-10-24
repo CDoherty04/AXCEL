@@ -12,7 +12,7 @@ export const CHALLENGE_TTL_SECONDS = 600
 export function createChallenge(mainnetAccount: string, devnetAccount: string, now: number): { message: string; expiresAt: number } {
   const expiresAt = now + CHALLENGE_TTL_SECONDS
   const message = [
-    'BEC credit layer: account link',
+    'AXCEL credit layer: account link',
     `nonce:${randomBytes(16).toString('hex')}`,
     `mainnet:${mainnetAccount}`,
     `devnet:${devnetAccount}`,

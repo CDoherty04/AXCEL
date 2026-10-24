@@ -1,4 +1,4 @@
-# DESIGN.md: BEC credit dashboard
+# DESIGN.md: AXCEL credit dashboard
 
 Status: approved direction. Every page builds from this file.
 Replaces the earlier calm version (rounded, gray, small type). We dropped it because it read as generic and low-impact.
