@@ -6,7 +6,11 @@
   "scripts": {
     "test": "tsx --test test/**/*.test.ts",
     "demo": "tsx src/cli.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "qn-backlog": "node scripts/qn-backlog.mjs"
+  },
+  "exports": {
+    "./quicknode/credit-history": "./lib/index.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
