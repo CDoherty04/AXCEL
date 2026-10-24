@@ -8,69 +8,50 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112..125,700..900&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400..600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logos/axcel-mark.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <header class="band">
   <div class="wrap">
-    <a class="brand" href="#top">AXCEL</a>
+    <a class="brand" href="#top"><img src="logos/axcel.svg" alt="AXCEL"></a>
     <nav aria-label="Main">
-      <a href="#breakdown">Score</a>
-      <a href="#credit">Credit</a>
-      <a href="#agents">Agents</a>
-      <a href="#repay">Repay</a>
-      <a class="page-link" href="how-it-works.html">How it works <span aria-hidden="true">→</span></a>
+      <div class="about">
+        <button class="about-btn" type="button" aria-expanded="false" aria-controls="about-menu">About <span class="chev" aria-hidden="true"></span></button>
+        <div class="about-menu" id="about-menu" hidden>
+          <a href="#how">How it works</a>
+          <a href="#breakdown">Score</a>
+          <a href="#credit">Credit</a>
+          <a href="#agents">Agents</a>
+          <a href="#repay">Repay</a>
+        </div>
+      </div>
+      <div class="about page-group">
+        <button class="about-btn" type="button" aria-expanded="false" aria-controls="score-menu">Get your score <span class="chev" aria-hidden="true"></span></button>
+        <div class="about-menu" id="score-menu" hidden>
+          <a href="get-score.html#top">Score</a>
+          <a href="get-score.html#link">Link</a>
+          <a href="get-score.html#verify">Verify</a>
+          <a href="get-score.html#borrow">Borrow</a>
+          <a href="get-score.html#agents">Agents</a>
+          <a href="get-score.html#repay">Repay</a>
+        </div>
+      </div>
     </nav>
-    <span class="net">Devnet</span>
-    <span class="sample">Sample data</span>
-    <a class="btn light small-btn" href="#start">Get started</a>
+    <div class="wallet"><button class="btn light small-btn" id="wallet-btn" type="button">Connect wallet</button></div>
   </div>
 </header>
 
 <main id="top">
 
-  <!-- Hero: headline first, product frame second (Mercury order). Violet is the only filled plane. -->
   <section class="wrap intro">
+    <p class="eyebrow">AXCEL · Agent XRPL Credit Exchange Layer</p>
     <h1 class="display t-96">Credit for every agent you run</h1>
     <p class="t-20 lede">One score for you. One credit line for all your agents.</p>
     <p class="cta-row">
-      <a class="btn primary" href="#start">Get your score</a>
-      <a class="btn" href="how-it-works.html">See how it works</a>
+      <a class="btn primary" href="get-score.html">Get your score</a>
     </p>
-  </section>
-
-  <section class="wrap">
-    <div class="hero" aria-label="Score and credit used">
-      <div class="score-plane">
-        <p class="hero-label">Score</p>
-        <p class="display t-176" id="score">610</p>
-        <span class="tier" id="tier">Tier B</span>
-      </div>
-      <div class="credit-plane">
-        <div>
-          <p class="hero-label">Credit used</p>
-          <div class="used-row">
-            <p class="display t-96" id="used">$180</p>
-            <p class="t-20 muted">of $<span id="limit">250</span></p>
-          </div>
-        </div>
-        <div>
-          <div class="bar" role="img" aria-label="Credit used by agent">
-            <span class="a1" id="bar1"></span>
-            <span class="a2" id="bar2"></span>
-          </div>
-          <div class="legend">
-            <span class="l1"><i></i>Shopper</span>
-            <span class="l2"><i></i>API buyer</span>
-          </div>
-        </div>
-        <div class="btn-row">
-          <button class="btn primary" id="settle" type="button">Settle purchase</button>
-          <button class="btn" id="refuse" type="button">Try over limit</button>
-        </div>
-      </div>
-    </div>
   </section>
 
   <section class="wrap">
@@ -82,6 +63,29 @@
         <li><img class="mastercard" src="logos/mastercard.svg" alt="Mastercard Agent Pay"></li>
         <li><img class="quicknode" src="logos/quicknode.svg" alt="QuickNode"></li>
       </ul>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="how">
+      <div class="split-copy">
+        <h2 class="sec">How it works</h2>
+        <p class="t-32 display">History in. Credit out.</p>
+        <p class="small">Each repayment raises the score for all your agents.</p>
+      </div>
+      <div class="split-body">
+        <div class="table-scroll">
+          <table class="steps detail">
+            <tbody>
+              <tr><td class="step">1</td><td>Prove your account</td><td>Sign one challenge with your Mainnet and Devnet keys; we read your history through QuickNode</td><td class="small">Mainnet</td></tr>
+              <tr><td class="step">2</td><td>Get a tier credential</td><td>Your tier (A, B or C) goes on your account for 30 days, next to a KYA-Verified credential</td><td class="small">Devnet</td></tr>
+              <tr><td class="step">3</td><td>Borrow</td><td>You and the loan broker co-sign a native XRPL loan sized to your tier</td><td class="small">Devnet</td></tr>
+              <tr><td class="step">4</td><td>Agents spend</td><td>Each agent pays from your line inside its signed mandate, never with your keys</td><td class="small">Agent Pay</td></tr>
+              <tr><td class="step">5</td><td>Repay and rescore</td><td>Each payment refreshes your tier credential; early payoff counts as on time</td><td class="small">Devnet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -205,8 +209,7 @@
     <div class="closer">
       <h2 class="display t-96">Start with your history</h2>
       <p class="cta-row">
-        <a class="btn primary" href="#top">Get your score</a>
-        <a class="btn" href="how-it-works.html">See how it works</a>
+        <a class="btn primary" href="get-score.html">Get your score</a>
       </p>
     </div>
   </section>
@@ -217,8 +220,7 @@
   <div class="wrap">
     <div class="foot-grid">
       <div>
-        <span class="brand">AXCEL</span>
-        <p class="small-on-ink">Devnet. Sample data.</p>
+        <span class="brand"><img src="logos/axcel.svg" alt="AXCEL"></span>
       </div>
       <div>
         <p class="foot-h">Product</p>
@@ -226,7 +228,7 @@
         <a href="#credit">Credit</a>
         <a href="#agents">Agents</a>
         <a href="#repay">Repay</a>
-        <a href="how-it-works.html">How it works</a>
+        <a href="#how">How it works</a>
       </div>
       <div class="foot-logos">
         <p class="foot-h">Built on</p>
@@ -240,6 +242,8 @@
 </footer>
 
 <script src="app.js"></script>
+<script src="nav.js"></script>
+<script src="wallet.js"></script>
 <script src="reveal.js"></script>
 </body>
 </html>
