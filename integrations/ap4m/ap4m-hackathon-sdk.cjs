@@ -123,6 +123,7 @@ async function redeemVoucher(wallet, ledgerAddress, rpcUrl, channelId, cumulativ
   return {
     claimId: log ? log.topics[2] : null,
     txHash: receipt.hash,
+    signature,
   };
 }
 

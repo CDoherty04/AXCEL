@@ -23,7 +23,8 @@ export interface Ap4mSdk {
   requestChannel(apiUrl: string, token: string, wallet: ethers.Wallet, opts: { capRlusd: string; rpcUrl: string; merchantId?: string }): Promise<{ channel_id: string }>
   listChannels(apiUrl: string, token: string): Promise<{ channel_id: string; channel_status: string }[]>
   getChannelState(provider: ethers.Provider, ledger: string, channelId: string): Promise<{ cap: bigint; redeemed: bigint; validBefore: bigint; status: number }>
-  redeemVoucher(wallet: ethers.Wallet, ledger: string, rpcUrl: string, channelId: string, cumulative: bigint): Promise<{ claimId: string | null; txHash: string }>
+  signVoucher?(wallet: ethers.Wallet, ledger: string, channelId: string, cumulative: bigint): Promise<string>
+  redeemVoucher(wallet: ethers.Wallet, ledger: string, rpcUrl: string, channelId: string, cumulative: bigint): Promise<{ claimId: string | null; txHash: string; signature?: string }>
   settle(apiUrl: string, token: string, channelId: string): Promise<{ settlement_tx?: string; payout_tx?: string; receipt_url?: string }>
   closeChannel(apiUrl: string, token: string, wallet: ethers.Wallet, channelId: string): Promise<{ tx_hash?: string }>
 }

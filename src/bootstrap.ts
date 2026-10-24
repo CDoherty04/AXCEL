@@ -1,6 +1,8 @@
 import { MockKycProvider } from './identity/kya.js'
 import { MockAgentRegistry, MockNetworkAuthorizer, type AgentRegistry, type NetworkAuthorizer } from './mastercard/agentPay.js'
 import { Ap4mAgentRegistry, Ap4mNetworkAuthorizer, Ap4mSession, ap4mConfigFromEnv } from './mastercard/ap4m.js'
+import { Ap4mPaymentChannel, LocalPaymentChannel } from './mastercard/channel.js'
+import { Paywall } from './mastercard/x402.js'
 import { loadQuicknodeEnv } from './lib/quicknode.js'
 import { QuickNodeHistoryReader } from './scoring/quicknodeHistory.js'
 import { LedgerMerchantResolver } from './scoring/antiGaming.js'
@@ -17,6 +19,7 @@ export interface Wiring {
   ledger: Ledger
   store: Store
   registry: AgentRegistry
+  paywall: Paywall
   close(): Promise<void>
 }
 
@@ -39,15 +42,18 @@ export async function createService(opts: {
   // It fails loudly if unconfigured; it never falls back to the mock.
   let registry: AgentRegistry
   let authorizer: NetworkAuthorizer
+  let paywall: Paywall
   if (process.env.MASTERCARD_MODE === 'ap4m') {
     const session = new Ap4mSession(ap4mConfigFromEnv())
     registry = new Ap4mAgentRegistry(session)
     authorizer = new Ap4mNetworkAuthorizer(session)
+    paywall = new Paywall(new Ap4mPaymentChannel(session))
     log('Mastercard: Agent Pay for Machines (real)')
   } else {
     const mock = new MockAgentRegistry()
     registry = mock
     authorizer = opts.authorizer?.(mock) ?? new MockNetworkAuthorizer(mock)
+    paywall = new Paywall(new LocalPaymentChannel())
     log('Mastercard: mock (set MASTERCARD_MODE=ap4m for the real APIs)')
   }
   // DID documents are served by this service; the resolver reads them straight from the store.
@@ -64,7 +70,7 @@ export async function createService(opts: {
     mainnetHistory: opts.mainnetHistory ?? (process.env.QUICKNODE_XRP_RPC_URL ? new QuickNodeHistoryReader() : new XrplHistoryReader('mainnet')),
     resolver: new LedgerMerchantResolver(ledger, fetchDoc),
   })
-  return { service, ledger, store, registry, close: () => ledger.close() }
+  return { service, ledger, store, registry, paywall, close: () => ledger.close() }
 }
 
 export { StaticHistoryReader }
