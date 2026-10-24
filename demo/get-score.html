@@ -27,17 +27,8 @@
           <a href="index.html#repay">Repay</a>
         </div>
       </div>
-      <div class="about page-group">
-        <button class="about-btn" type="button" aria-expanded="false" aria-controls="score-menu">Get your score <span class="chev" aria-hidden="true"></span></button>
-        <div class="about-menu" id="score-menu" hidden>
-          <a href="#top">Score</a>
-          <a href="#link">Link</a>
-          <a href="#verify">Verify</a>
-          <a href="#borrow">Borrow</a>
-          <a href="#agents">Agents</a>
-          <a href="#repay">Repay</a>
-        </div>
-      </div>
+      <a class="page-group nav-link" href="get-score.html" aria-current="page">Get your score</a>
+      <a class="page-group nav-link" href="agents.html">Agent dashboard</a>
     </nav>
     <div class="wallet"><button class="btn light small-btn" id="wallet-btn" type="button">Connect wallet</button></div>
   </div>
@@ -47,13 +38,99 @@
 
   <section class="wrap intro">
     <h1 class="display t-96">Get your score</h1>
-    <p class="t-20 lede">Link your account, see your score, then borrow and put your agents to work.</p>
+    <p class="t-20 lede">Connect your wallet, see your Mainnet history and the score it earns, then continue to borrow and put your agents to work.</p>
     <p class="conn small" id="conn"><span class="mark wait"></span><span id="conn-text">Checking the AXCEL service…</span></p>
-    <p class="small" id="profile-line" hidden>Profile <span class="mono" id="profile-id"></span> · <button class="linkish" type="button" id="reset">Start over</button></p>
   </section>
 
   <section class="wrap">
-    <div class="hero" aria-label="Your score and credit used">
+    <div class="part-head">
+      <p class="part-num">Part 1</p>
+      <h2 class="display t-32">Your history</h2>
+      <p class="part-by"><span class="small">Mainnet archive by</span><img src="logos/quicknode.svg" alt="QuickNode"></p>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="wallet">
+      <div class="split-copy">
+        <h2 class="sec">1. Connect your wallet</h2>
+        <p class="t-32 display">Start with the account you already use.</p>
+        <p class="small">GemWallet, Crossmark, or paste an address. Reading history needs no signature.</p>
+      </div>
+      <div class="split-body">
+        <div class="wallet-panel">
+          <p class="small">Wallet</p>
+          <p class="mono t-20" id="wp-address">Not connected</p>
+          <p><button class="btn primary" id="wp-connect" type="button">Connect wallet</button></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="history">
+      <div class="split-copy">
+        <h2 class="sec">2. Your transaction history</h2>
+        <p class="t-32 display">Read straight from Mainnet.</p>
+        <p class="small">QuickNode's archive returns every transaction on the account, oldest activity included.</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ history</span></div>
+          <form class="form term-body" id="f-history">
+            <div class="field-row">
+              <div class="field"><label for="h-account">XRPL Mainnet address</label><input id="h-account" name="account" required placeholder="r…" autocomplete="off" spellcheck="false"></div>
+              <div class="field">
+                <label for="h-limit">How many transactions</label>
+                <select id="h-limit" name="limit"><option value="50">50</option><option value="200" selected>200</option><option value="500">500</option></select>
+              </div>
+            </div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Read history</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div id="history-out" hidden>
+          <div class="stats after" aria-label="History summary">
+            <div><p class="small">Transactions</p><p class="display t-32" id="hs-count">—</p></div>
+            <div><p class="small">Payments sent</p><p class="display t-32" id="hs-sent">—</p></div>
+            <div><p class="small">Counterparties</p><p class="display t-32" id="hs-peers">—</p></div>
+            <div><p class="small">First activity</p><p class="display t-32" id="hs-first">—</p></div>
+          </div>
+          <div class="table-scroll after">
+            <table>
+              <thead><tr><th>Date</th><th>Type</th><th>Direction</th><th>Counterparty</th><th class="num">Amount</th><th>Result</th></tr></thead>
+              <tbody id="history-rows"></tbody>
+            </table>
+          </div>
+          <p class="small after" id="history-more"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="credit-score">
+      <div class="split-copy">
+        <h2 class="sec">3. Your credit score</h2>
+        <p class="t-32 display">One score. Every agent.</p>
+        <p class="small">Successful payments you sent count toward the score. A plain payment is worth a quarter of a verified agent purchase.</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ score</span></div>
+          <form class="form term-body" id="f-preview">
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Calculate score</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="hero" aria-label="Your credit score">
       <div class="score-plane">
         <p class="hero-label">Score</p>
         <p class="display t-176" id="card-score">—</p>
@@ -61,23 +138,30 @@
       </div>
       <div class="credit-plane">
         <div>
-          <p class="hero-label">Credit used</p>
+          <p class="hero-label">Credit line</p>
           <div class="used-row">
-            <p class="display t-96" id="card-used">$0</p>
-            <p class="t-20 muted">of $<span id="card-limit">0</span></p>
+            <p class="display t-96" id="card-line">$0</p>
+            <p class="t-20 muted" id="card-basis"></p>
           </div>
         </div>
-        <div>
-          <div class="bar" id="card-bar" role="img" aria-label="Credit used by agent"></div>
-          <div class="legend" id="card-legend"></div>
-        </div>
+        <ul class="reasons" id="card-reasons"></ul>
         <p class="small" id="card-note">Connect your wallet to see your score.</p>
         <div class="btn-row">
-          <button class="btn primary" id="card-connect" type="button">Connect wallet</button>
-          <button class="btn" id="card-refresh" type="button" hidden>Refresh</button>
+          <button class="btn primary" id="continue" type="button">Continue to XRPL and Mastercard</button>
         </div>
       </div>
     </div>
+  </section>
+
+  <div class="part" id="part2" hidden>
+
+  <section class="wrap">
+    <div class="part-head">
+      <p class="part-num">Part 2</p>
+      <h2 class="display t-32">Borrow and spend</h2>
+      <p class="part-by"><span class="small">On</span><img src="logos/xrpl.svg" alt="XRPL"><img class="mc" src="logos/mastercard.svg" alt="Mastercard"></p>
+    </div>
+    <p class="small after" id="profile-line" hidden>Profile <span class="mono" id="profile-id"></span> · <button class="linkish" type="button" id="reset">Start over</button></p>
   </section>
 
   <section class="wrap">
@@ -152,9 +236,9 @@
   <section class="wrap">
     <div class="split" id="score">
       <div class="split-copy">
-        <h2 class="sec">3. See your score</h2>
-        <p class="t-32 display">One score. Every agent.</p>
-        <p class="small">Read from your ledger history.</p>
+        <h2 class="sec">3. Record your score</h2>
+        <p class="t-32 display">Make it official.</p>
+        <p class="small">The same QuickNode history, now scored with your verified identity. This is the score your tier credential carries.</p>
       </div>
       <div class="split-body">
         <div class="term" id="f-score-term">
@@ -252,6 +336,8 @@
     </div>
   </section>
 
+  </div>
+
 </main>
 
 <footer class="band foot">
@@ -267,6 +353,7 @@
         <a href="index.html#agents">Agents</a>
         <a href="index.html#repay">Repay</a>
         <a href="index.html#how">How it works</a>
+        <a href="agents.html">Agent dashboard</a>
       </div>
       <div class="foot-logos">
         <p class="foot-h">Built on</p>
@@ -279,7 +366,9 @@
   </div>
 </footer>
 
+<script src="term.js"></script>
 <script src="get-score.js"></script>
+<script src="quicknode.js"></script>
 <script src="nav.js"></script>
 <script src="wallet.js"></script>
 <script src="reveal.js"></script>

@@ -10,6 +10,15 @@ const port = Number(process.env.X402_PORT ?? 4020)
 
 const app = express()
 app.use(express.json())
+// Same CORS policy as the main API, so the demo dashboard can call the paywall from the browser.
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-PAYMENT')
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') { res.sendStatus(204); return }
+  next()
+})
 mountX402(app, paywall)
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err)

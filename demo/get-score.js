@@ -167,7 +167,7 @@
         });
       }
       next()
-        .then(function () { print(form, "# " + done[id](form, last), "t-ok"); refreshCard(); })
+        .then(function () { print(form, "# " + done[id](form, last), "t-ok"); })
         .catch(function (err) { print(form, "error: " + err.message, "t-err"); })
         .then(function () { btn.disabled = false; renderAll(); });
     });
@@ -178,54 +178,9 @@
     if (w) remember(w.address, null);
     userId = null; save("axcel.userId", null); showProfile();
     $("f-confirm-term").hidden = true; $("score-out").hidden = true;
-    renderAll(); refreshCard();
+    renderAll();
   });
 
-  // ---- score card: the connected wallet's live profile ----
-  function money(n) { return "$" + (Math.round(n * 100) / 100).toLocaleString(); }
-  function card(state) {
-    $("card-score").textContent = state.score == null ? "—" : Math.round(state.score);
-    $("card-tier").textContent = state.tier ? "Tier " + state.tier : "No tier yet";
-    $("card-used").textContent = money(state.used || 0);
-    $("card-limit").textContent = (state.limit || 0).toLocaleString();
-    $("card-note").textContent = state.note || "";
-    $("card-note").hidden = !state.note;
-    $("card-connect").hidden = !!wallet();
-    $("card-refresh").hidden = !wallet() || !userId;
-    var agents = state.agents || [], limit = state.limit || 0;
-    $("card-bar").innerHTML = agents.map(function (a, i) {
-      var pct = limit ? Math.min(100, a.spentUsd / limit * 100) : 0;
-      return '<span class="seg c' + (i % 4) + '" style="width:' + pct + '%"></span>';
-    }).join("");
-    $("card-legend").innerHTML = agents.map(function (a, i) {
-      return '<span class="c' + (i % 4) + '"><i></i>' + esc(a.label) + "</span>";
-    }).join("");
-  }
-
-  function refreshCard() {
-    var w = wallet();
-    if (!w) return card({ note: "Connect your wallet to see your score." });
-    if (!userId) return card({ note: "Wallet " + w.address.slice(0, 5) + "…" + w.address.slice(-4) + " has no AXCEL profile yet. Link it in step 1 below." });
-    card({ note: "Loading your profile…" });
-    fetch(BASE + "/users/" + userId + "/profile").then(function (res) {
-      return res.json().then(function (p) { if (!res.ok) throw new Error(p.error || "HTTP " + res.status); return p; });
-    }).then(function (p) {
-      var c = p.credit || {};
-      card({
-        score: p.score && p.score.value, tier: (p.score && p.score.tier) || c.tier,
-        used: c.spendOutstanding, limit: c.creditLine,
-        agents: (p.agents || []).filter(function (a) { return a.status !== "revoked"; })
-      });
-    }, function (err) {
-      card({ note: /fetch/i.test(err.message) ? "The AXCEL service isn't running, so your score can't load yet (npm run api)." : "Couldn't load your profile: " + err.message });
-    });
-  }
-
-  $("card-connect").addEventListener("click", function (e) {
-    e.stopPropagation();
-    $("wallet-btn").click();
-  });
-  $("card-refresh").addEventListener("click", refreshCard);
 
   // Service status
   fetch(BASE + "/health").then(function (r) { if (!r.ok) throw 0; }).then(function () {
@@ -250,11 +205,11 @@
     // Switching wallets switches profiles.
     userId = e.detail ? users()[e.detail.address] || null : load("axcel.userId");
     $("f-confirm-term").hidden = true; $("score-out").hidden = true;
-    useWallet(e.detail); showProfile(); renderAll(); refreshCard();
+    useWallet(e.detail); showProfile(); renderAll();
   });
   useWallet(w0);
 
   showProfile();
   renderAll();
-  refreshCard();
+ 
 })();

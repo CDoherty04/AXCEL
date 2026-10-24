@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AXCEL: agent dashboard</title>
+<meta name="description" content="Run your agents: add them, let them buy, watch what they spend, and revoke them in one click.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112..125,700..900&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400..600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logos/axcel-mark.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="band">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="logos/axcel.svg" alt="AXCEL"></a>
+    <nav aria-label="Main">
+      <div class="about">
+        <button class="about-btn" type="button" aria-expanded="false" aria-controls="about-menu">About <span class="chev" aria-hidden="true"></span></button>
+        <div class="about-menu" id="about-menu" hidden>
+          <a href="index.html#how">How it works</a>
+          <a href="index.html#breakdown">Score</a>
+          <a href="index.html#credit">Credit</a>
+          <a href="index.html#agents">Agents</a>
+          <a href="index.html#repay">Repay</a>
+        </div>
+      </div>
+      <a class="page-group nav-link" href="get-score.html">Get your score</a>
+      <a class="page-group nav-link" href="agents.html" aria-current="page">Agent dashboard</a>
+    </nav>
+    <div class="wallet"><button class="btn light small-btn" id="wallet-btn" type="button">Connect wallet</button></div>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="wrap intro">
+    <h1 class="display t-96">Agent dashboard</h1>
+    <p class="t-20 lede">Add agents, let them buy inside their limits, see every purchase, and revoke any agent in one click.</p>
+    <p class="conn small" id="conn-api"><span class="mark wait"></span><span>Checking the AXCEL service…</span></p>
+    <p class="conn small" id="conn-x402"><span class="mark wait"></span><span>Checking the Agent Pay paywall…</span></p>
+  </section>
+
+  <section class="wrap">
+    <div class="stats" aria-label="Your agents at a glance">
+      <div><p class="small">Active agents</p><p class="display t-32" id="st-agents">—</p></div>
+      <div><p class="small">Spent of budget</p><p class="display t-32" id="st-spent">—</p></div>
+      <div><p class="small">Credit available</p><p class="display t-32" id="st-credit">—</p></div>
+      <div><p class="small">Score</p><p class="display t-32" id="st-score">—</p></div>
+    </div>
+    <p class="small after" id="dash-note">Connect your wallet to load your agents.</p>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="fleet">
+      <div class="split-copy">
+        <h2 class="sec">Your agents</h2>
+        <p class="t-32 display">Each agent has its own limit.</p>
+        <p class="small">Agents pay from their own spending account, filled just in time, so a stolen key reaches almost nothing.</p>
+      </div>
+      <div class="split-body">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Agent</th><th>Mode</th><th class="num">Per purchase</th><th class="num">Spent</th><th class="num">Buys</th><th>Status</th><th></th></tr></thead>
+            <tbody id="fleet-rows"><tr><td colspan="7" class="small">No agents yet.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="after"><button class="btn" type="button" id="refresh">Refresh</button></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="add">
+      <div class="split-copy">
+        <h2 class="sec">Add an agent</h2>
+        <p class="t-32 display">Set its mandate once.</p>
+        <p class="small">Needs your identity credential (step 2 on Get your score). Register merchants first to get their IDs.</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ add agent</span></div>
+          <form class="form term-body" id="f-agent">
+            <div class="field-row">
+              <div class="field"><label for="a-label">Agent name</label><input id="a-label" name="label" required placeholder="Shopper"></div>
+              <div class="field">
+                <label for="a-mode">Mode</label>
+                <select id="a-mode" name="mode">
+                  <option value="immediate">Immediate: I approve each order</option>
+                  <option value="autonomous">Autonomous: it buys within limits</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label for="a-max">Max per purchase ($)</label><input id="a-max" name="max" type="number" min="1" step="0.01" required placeholder="50"></div>
+              <div class="field"><label for="a-budget">Total budget ($)</label><input id="a-budget" name="budget" type="number" min="1" step="0.01" required placeholder="150"></div>
+            </div>
+            <div class="field"><label for="a-merchants">Merchants it may pay</label><input id="a-merchants" name="merchants" required list="merchant-ids" placeholder="Merchant IDs, separated by commas"></div>
+            <div class="field"><label for="a-items">What it may buy</label><input id="a-items" name="items" required placeholder="Paper, Ink"></div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Add agent</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="merchants">
+      <div class="split-copy">
+        <h2 class="sec">Merchants</h2>
+        <p class="t-32 display">Who your agents can pay.</p>
+        <p class="small">A merchant only accepts payments from credentialed agent accounts.</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ merchants</span></div>
+          <form class="form term-body" id="f-merchant">
+            <div class="field-row">
+              <div class="field"><label for="m-name">Name</label><input id="m-name" name="name" required placeholder="Paperly"></div>
+              <div class="field"><label for="m-site">Website</label><input id="m-site" name="website" required placeholder="https://paperly.example"></div>
+            </div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Register merchant</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="table-scroll after">
+          <table>
+            <thead><tr><th>Merchant</th><th>ID</th><th>Account</th></tr></thead>
+            <tbody id="merchant-rows"><tr><td colspan="3" class="small">None registered from this browser yet.</td></tr></tbody>
+          </table>
+        </div>
+        <datalist id="merchant-ids"></datalist>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="buy">
+      <div class="split-copy">
+        <h2 class="sec">Make a purchase</h2>
+        <p class="t-32 display">Every purchase has a hash.</p>
+        <p class="small">The service builds the Verifiable Intent chain, the network authorizes it, and the payment settles on XRPL with the hash in its memo.</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ buy</span></div>
+          <form class="form term-body" id="f-buy">
+            <div class="field">
+              <label for="b-agent">Agent</label>
+              <select id="b-agent" name="agent" required><option value="">Connect your wallet first</option></select>
+            </div>
+            <div class="field-row">
+              <div class="field"><label for="b-merchant">Merchant ID</label><input id="b-merchant" name="merchant" required list="merchant-ids" placeholder="m_…" spellcheck="false"></div>
+              <div class="field"><label for="b-amount">Amount ($)</label><input id="b-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="20"></div>
+            </div>
+            <div class="field"><label for="b-item">Item</label><input id="b-item" name="item" required placeholder="Paper"></div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Buy</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="activity">
+      <div class="split-copy">
+        <h2 class="sec">Activity</h2>
+        <p class="t-32 display">Settled, in flight, flagged.</p>
+        <p class="small">A purchase scores only after its payment validates on XRPL.</p>
+      </div>
+      <div class="split-body">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Time</th><th>Agent</th><th>Merchant</th><th class="num">Amount</th><th>Intent hash</th><th>Status</th></tr></thead>
+            <tbody id="activity-rows"><tr><td colspan="6" class="small">No purchases yet.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-scroll after" id="alerts-box" hidden>
+          <table>
+            <thead><tr><th>Alert</th><th>Agent</th><th>Transaction</th></tr></thead>
+            <tbody id="alert-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="x402">
+      <div class="split-copy">
+        <h2 class="sec">Pay per use</h2>
+        <p class="t-32 display">HTTP 402, paid by voucher.</p>
+        <p class="small">Agent Pay for Machines: a resource names its price, the agent signs a voucher against its funded channel, and anything past the cap is refused. Runs on the paywall service (npm run x402).</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ price</span></div>
+          <form class="form term-body" id="f-price">
+            <div class="field">
+              <label for="x-res">Resource</label>
+              <select id="x-res" name="res"><option value="briefing">briefing: 0.1 RLUSD</option><option value="archive">archive: 5 RLUSD (over the 1 RLUSD cap)</option></select>
+            </div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Ask the price</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ pay</span></div>
+          <form class="form term-body" id="f-pay">
+            <div class="field">
+              <label for="x-pay-res">Resource</label>
+              <select id="x-pay-res" name="res"><option value="briefing">briefing</option><option value="archive">archive</option></select>
+            </div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Pay with a voucher</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ settle</span></div>
+          <form class="form term-body" id="f-settle">
+            <div class="field"><label for="x-claim">Claim ID (filled in after you pay)</label><input id="x-claim" name="claim" required placeholder="0x…" spellcheck="false"></div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Settle and get receipt</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ proof</span></div>
+          <form class="form term-body" id="f-proof">
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Run the full proof</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="network">
+      <div class="split-copy">
+        <h2 class="sec">Network</h2>
+        <p class="t-32 display">Nothing lost in flight.</p>
+        <p class="small">Finish purchases that stopped partway, and settle the Agent Pay channel to the merchant payout wallet.</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ reconcile</span></div>
+          <form class="form term-body" id="f-reconcile">
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Reconcile purchases</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ settle channel</span></div>
+          <form class="form term-body" id="f-netsettle">
+            <label class="check"><input type="checkbox" name="close"> Close the channel after settling</label>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Settle channel</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="band foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <span class="brand"><img src="logos/axcel.svg" alt="AXCEL"></span>
+      </div>
+      <div>
+        <p class="foot-h">Product</p>
+        <a href="index.html#breakdown">Score</a>
+        <a href="index.html#credit">Credit</a>
+        <a href="index.html#agents">Agents</a>
+        <a href="index.html#repay">Repay</a>
+        <a href="index.html#how">How it works</a>
+        <a href="agents.html">Agent dashboard</a>
+      </div>
+      <div class="foot-logos">
+        <p class="foot-h">Built on</p>
+        <img src="logos/xrpl-white.svg" alt="XRPL">
+        <span class="lockup"><img src="logos/rlusd.png" alt="RLUSD"><img class="ripple-text" src="logos/ripple-text-white.svg" alt="Ripple"></span>
+        <img class="mastercard" src="logos/mastercard-white.svg" alt="Mastercard Agent Pay">
+        <img class="quicknode" src="logos/quicknode-white.svg" alt="QuickNode">
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="term.js"></script>
+<script src="agents.js"></script>
+<script src="nav.js"></script>
+<script src="wallet.js"></script>
+<script src="reveal.js"></script>
+</body>
+</html>
