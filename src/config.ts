@@ -31,9 +31,9 @@ export type Tier = 'A' | 'B' | 'C'
 
 /** Credit line per tier, in test dollars (stand-in for RLUSD). Covers all of a user's agents together. */
 export const tiers: Record<Tier, { minScore: number; creditLine: number }> = {
-  A: { minScore: 700, creditLine: 1000 },
-  B: { minScore: 580, creditLine: 250 },
-  C: { minScore: 0, creditLine: 50 },
+  A: { minScore: 450, creditLine: 1000 },
+  B: { minScore: 380, creditLine: 100 },
+  C: { minScore: 360, creditLine: 10 },
 }
 
 export const CREDENTIAL_TTL_SECONDS = 30 * DAY
