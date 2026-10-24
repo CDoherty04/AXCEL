@@ -4,15 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "tsx --test test/**/*.test.ts",
-    "demo": "tsx src/cli.ts",
+    "test": "vitest run",
+    "demo": "tsx scripts/demo.ts",
     "typecheck": "tsc --noEmit",
     "qn-backlog": "node scripts/qn-backlog.mjs",
     "api": "tsx src/api/server.ts",
     "ap4m-agent": "node integrations/ap4m/ap4m-agent.cjs",
     "bootstrap": "tsx scripts/bootstrap.ts",
-    "demo:layer": "tsx scripts/demo.ts",
-    "test:layer": "vitest run",
     "vi:smoke": ".venv/Scripts/python vi_bridge/smoke.py",
     "resilience": "tsx scripts/resilience.ts"
   },

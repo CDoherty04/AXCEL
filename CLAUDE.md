@@ -245,7 +245,7 @@ Run cold start on Mainnet through QuickNode and everything after it on Devnet. T
 
 ## Build status (code in this repo)
 
-TypeScript service in `src/`, Python bridge to the pinned VI reference in `vi_bridge/` (reference cloned to `vendor/verifiable-intent` at commit `356c296`, v0.1). Everything below runs on Devnet. `npm run bootstrap` creates the lending infrastructure once (about 200 s because of the vault subscription window), `npm run demo:layer` runs the full demo script, `npm run test:layer` runs the credit-layer tests, `npm run dev` starts its API. Python setup: `python -m venv .venv` then `.venv/Scripts/python -m pip install cryptography`.
+TypeScript service in `src/`, Python bridge to the pinned VI reference in `vi_bridge/` (reference cloned to `vendor/verifiable-intent` at commit `356c296`, v0.1). Everything below runs on Devnet. `npm run bootstrap` creates the lending infrastructure once (about 200 s because of the vault subscription window), `npm run demo` runs the full demo script, `npm test` runs the unit tests, `npm run api` starts the API. Python setup: `python -m venv .venv` then `.venv/Scripts/python -m pip install cryptography`.
 
 | Area | File | What it does |
 | --- | --- | --- |
@@ -291,7 +291,6 @@ Cold start scores 614 (tier B), a 250 loan is drawn, an Immediate and an Autonom
 
 ### Known gaps
 
-- The teammates' original `CreditSystem` (`system.ts`, `score.ts`, `policy.ts`, `originator.ts`) is no longer used by any route. It is left in place pending its owner's agreement; the credit-layer scoring engine is the source of truth.
 - Authorization idempotency is in memory: a process restart between "redeemed" and "recorded" can re-redeem. Persisting the redemption would close it.
 - Keys are custodied by the service for the demo. Production needs client-side signing and user authentication on the API.
 - The self-dealing resolver reads funding sources from the ledger it is wired to (Devnet); Mainnet merchants are only checked against the user's own accounts unless a Mainnet resolver is added.
@@ -315,6 +314,6 @@ How the two ledgers fit together:
 
 Status: sign-in, service config, allocation (20 RLUSD, active) and the merchant payout wallet are verified live. **Not yet exercised live:** channel open and voucher redemption, because the agent wallet has no gas on the EVM testnet (fund it at https://faucet.testevm.ripple.com). The adapter is covered against an SDK double (`test-layer/ap4m.test.ts`).
 
-### Merge notes
+### Single backend
 
-`origin/main` carries a parallel implementation (`src/system.ts`, `score.ts`, `policy.ts`, `src/api/server.ts`, QuickNode history in `lib/`, AP4M SDK in `integrations/ap4m/`). Both coexist: the credit-layer service lives in `src/service.ts` with its API in `src/api/creditLayerServer.ts` (`npm run dev`), its tests in `test-layer/` (`npm run test:layer`, vitest), and the original `npm test` still runs the node:test suite. Cold start uses the teammate's QuickNode library through `src/scoring/quicknodeHistory.ts` when `QUICKNODE_XRP_RPC_URL` is set. The two scoring and lending models are not unified yet.
+The earlier parallel `CreditSystem` (`system.ts`, `score.ts`, `policy.ts`, `originator.ts`, `store.ts`, `types.ts`, `money.ts`, `errors.ts`, the CLI demo and its tests) was removed; the credit-layer scoring engine in `src/scoring/` is the only scoring model. What stays from the other branch: the router and HTTP helpers (`src/api/`), the QuickNode history library (`lib/`, used for cold start through `src/scoring/quicknodeHistory.ts` when `QUICKNODE_XRP_RPC_URL` is set), the AP4M SDK (`integrations/ap4m/`) and the website draft. Commands: `npm test` (vitest), `npm run demo`, `npm run api`, `npm run bootstrap`, `npm run resilience`.
