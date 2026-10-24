@@ -1,6 +1,29 @@
 import { z } from "zod";
+import type { AuthorizationResult } from "../../mastercard/agentPay.js";
 import type { ViChain } from "../../vi/bridge.js";
 import { body, json, type RouteFactory } from "./common.js";
+
+const networkClaim = z.object({
+  claimId: z.string(),
+  redeemTx: z.string(),
+  channelId: z.string().optional(),
+  rlusd: z.string().optional(),
+});
+
+function priorAuth(claim: z.infer<typeof networkClaim> | undefined): AuthorizationResult | undefined {
+  if (!claim) return undefined;
+  return {
+    approved: true,
+    authorizationId: claim.claimId,
+    evidence: {
+      network: "xrpl-evm-testnet",
+      channelId: claim.channelId,
+      redeemTx: claim.redeemTx,
+      claimId: claim.claimId,
+      rlusd: claim.rlusd,
+    },
+  };
+}
 
 const item = z.object({ id: z.string(), title: z.string() });
 const chain = z.object({ l1: z.string(), l2: z.string(), l3a: z.string().optional(), l2Payment: z.string().optional() });
@@ -31,6 +54,19 @@ export const paymentsRoutes: RouteFactory = (holder) => [
     ),
   },
   {
+    method: "POST",
+    pattern: "/api/v1/agents/simple",
+    owner: "Caleb",
+    handler: json(async (ctx, svc) => {
+      const b = await body(ctx, z.object({
+        userId: z.string().optional(),
+        label: z.string().min(1),
+        limitCents: z.number().int().positive(),
+      }));
+      return svc.addNamedAgent(b.userId, b.label, b.limitCents);
+    }, holder, 201),
+  },
+  {
     method: "DELETE",
     pattern: "/api/v1/agents/:id",
     owner: "Caleb",
@@ -52,8 +88,14 @@ export const paymentsRoutes: RouteFactory = (holder) => [
     pattern: "/api/v1/payments/agentic/demo",
     owner: "Mastercard",
     handler: json(async (ctx, svc) => {
-      const b = await body(ctx, z.object({ agentId: z.string(), merchantId: z.string(), item, amountCents: z.number().int().positive() }));
-      return svc.purchase(b.agentId, { merchantId: b.merchantId, item: b.item, amountCents: b.amountCents });
+      const b = await body(ctx, z.object({
+        agentId: z.string(),
+        merchantId: z.string(),
+        item,
+        amountCents: z.number().int().positive(),
+        network: networkClaim.optional(),
+      }));
+      return svc.purchase(b.agentId, { merchantId: b.merchantId, item: b.item, amountCents: b.amountCents }, priorAuth(b.network));
     }, holder),
   },
   {

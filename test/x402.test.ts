@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Ap4mSession, type Ap4mSdk, ap4mConfigFromEnv } from '../src/mastercard/ap4m.js'
 import { Ap4mPaymentChannel, LocalPaymentChannel, X402_CHAIN_ID } from '../src/mastercard/channel.js'
 import { Paywall, X402_RESOURCES, runSlideProof } from '../src/mastercard/x402.js'
+import { agentPay } from '../src/mastercard/x402Agent.js'
 import { mountX402 } from '../src/api/x402Routes.js'
 
 const KEY = '0x' + '11'.repeat(32)
@@ -104,6 +105,44 @@ describe('HTTP 402 paywall', () => {
     const unlocked = await fetch(url, { headers: { 'X-PAYMENT': body.paymentHeader } })
     expect(unlocked.status).toBe(200)
     expect((await unlocked.json() as { title: string }).title).toBe('Agent credit briefing')
+  })
+
+  it('lets a separate agent read the 402, pay, and unlock the resource', async () => {
+    const channel = new LocalPaymentChannel()
+    const app = express()
+    app.use(express.json())
+    mountX402(app, new Paywall(channel))
+    const server = app.listen(0)
+    servers.push({
+      close: () => new Promise<void>((resolve, reject) => {
+        server.close((err?: Error) => err ? reject(err) : resolve())
+      }),
+    })
+    const port = (server.address() as AddressInfo).port
+    const before = (await channel.state()).redeemed
+
+    const over = await agentPay({ baseUrl: `http://127.0.0.1:${port}`, resourceId: 'archive', redeem: (amount) => channel.redeem(amount) })
+    expect(over.declined).toMatch(/cap/)
+    expect((await channel.state()).redeemed).toBe(before)
+
+    const paid = await agentPay({
+      baseUrl: `http://127.0.0.1:${port}`,
+      resourceId: 'briefing',
+      redeem: (amount) => channel.redeem(amount),
+      settle: (claimId) => fetch(`http://127.0.0.1:${port}/x402/settle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimId }),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(await res.text())
+        return res.json()
+      }),
+    })
+    expect(paid.declined).toBeUndefined()
+    expect(paid.resource?.title).toBe('Agent credit briefing')
+    expect(paid.voucher?.txHash).toMatch(/^0x/)
+    expect(paid.settlement?.receipt.claimId).toBe(paid.voucher?.claimId)
+    expect((await channel.state()).redeemed).toBe(before + X402_RESOURCES.briefing.price)
   })
 
   it('rejects an over-cap AP4M voucher before it is submitted', async () => {

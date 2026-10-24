@@ -73,9 +73,10 @@
         });
       }, Promise.resolve())
         .then(function () {
-          var line = opts.done && opts.done(form, last);
-          if (line) print(form, "# " + line, "t-ok");
-          if (opts.after) opts.after();
+          return Promise.resolve(opts.done && opts.done(form, last)).then(function (line) {
+            if (line) print(form, "# " + line, "t-ok");
+            if (opts.after) opts.after();
+          });
         })
         .catch(function (err) { print(form, "error: " + err.message, "t-err"); })
         .then(function () { btn.disabled = false; render(); });

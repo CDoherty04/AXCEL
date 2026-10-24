@@ -6,6 +6,7 @@ const require = createRequire(fileURLToPath(import.meta.url));
 
 const quicknode = require("../../lib/index.mjs") as {
   assertClassicAddress: (account: string) => void;
+  assertScoreAddress: (account: string) => void;
   fetchCreditHistory: (options: FetchCreditHistoryOptions) => Promise<CreditHistorySnapshot>;
   loadEnvLocal: (root?: string) => void;
 };
@@ -18,6 +19,10 @@ export function loadQuicknodeEnv(): void {
 
 export function assertClassicAddress(account: string): void {
   quicknode.assertClassicAddress(account);
+}
+
+export function assertScoreAddress(account: string): void {
+  quicknode.assertScoreAddress(account);
 }
 
 export function fetchCreditHistory(

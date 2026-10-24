@@ -197,7 +197,7 @@
       <div class="split-copy">
         <h2 class="sec">Pay per use</h2>
         <p class="t-32 display">HTTP 402, paid by voucher.</p>
-        <p class="small">Agent Pay for Machines: a resource names its price, the agent signs a voucher against its funded channel, and anything past the cap is refused. Runs on the paywall service (npm run x402).</p>
+        <p class="small">The agent reads the 402, pays only if the price fits its channel, and settlement releases RLUSD to the merchant. If an agent and a merchant are filled in above, the same voucher is anchored on XRPL and added to the score.</p>
       </div>
       <div class="split-body">
         <div class="term">
@@ -205,7 +205,7 @@
           <form class="form term-body" id="f-price">
             <div class="field">
               <label for="x-res">Resource</label>
-              <select id="x-res" name="res"><option value="briefing">briefing: 0.1 RLUSD</option><option value="archive">archive: 5 RLUSD (over the 1 RLUSD cap)</option></select>
+              <select id="x-res" name="res"><option value="briefing">briefing: 0.1 RLUSD</option><option value="archive">archive: 5 RLUSD</option></select>
             </div>
             <pre class="term-cmd"></pre>
             <p><button class="btn primary" type="submit">Ask the price</button></p>
@@ -220,7 +220,7 @@
               <select id="x-pay-res" name="res"><option value="briefing">briefing</option><option value="archive">archive</option></select>
             </div>
             <pre class="term-cmd"></pre>
-            <p><button class="btn primary" type="submit">Pay with a voucher</button></p>
+            <p><button class="btn primary" type="submit">Pay</button></p>
             <p class="result" aria-live="polite"></p>
           </form>
         </div>

@@ -23,20 +23,21 @@
     $("wp-address").textContent = w ? w.address : "Not connected";
     $("wp-connect").textContent = w ? "Change wallet" : "Connect wallet";
     var input = $("h-account");
-    if (w && (!input.value || input.dataset.fromWallet)) {
+    if (w && w.address && (!input.value || input.dataset.fromWallet)) {
       input.value = w.address;
       input.dataset.fromWallet = "1";
-      historyTerm.render(); preview.render();
     }
+    historyTerm.render();
+    preview.render();
   }
   $("wp-connect").addEventListener("click", function (e) { e.stopPropagation(); $("wallet-btn").click(); });
   $("h-account").addEventListener("input", function () { delete this.dataset.fromWallet; preview.render(); });
 
   // ---- history ----
-  var MAX_ROWS = 15;
+  var MAX_ROWS = 5;
   var historyTerm = AxcelTerm.mount({
     form: $("f-history"), base: API,
-    spec: function (f) { return [{ method: "GET", path: "/credit-history/" + (account() || "$ADDRESS") + "?limit=" + f.limit.value, note: "QuickNode Mainnet archive: account_tx, paged" }]; },
+    spec: function () { return [{ method: "GET", path: "/credit-history/" + (account() || "$ADDRESS"), note: "Full history. The table shows the latest 5." }]; },
     check: function () { return account() ? null : "enter an address or connect your wallet."; },
     done: function (f, snap) {
       var s = snap.summary || {};
@@ -51,7 +52,7 @@
           (t.direction === "out" ? "Sent" : t.direction === "in" ? "Received" : "Other") + '</td><td class="mono" title="' + esc(t.counterparty || "") + '">' + short(t.counterparty) +
           '</td><td class="num">' + esc(amount(t.amount)) + '</td><td class="status' + (ok ? "" : " refused") + '"><span class="mark ' + (ok ? "ok" : "bad") + '"></span>' + (ok ? "Success" : esc(t.result)) + "</td></tr>";
       }).join("") : '<tr><td colspan="6" class="small">No transactions on this account.</td></tr>';
-      $("history-more").textContent = txs.length > MAX_ROWS ? "Showing the latest " + MAX_ROWS + " of " + txs.length + " transactions read." : snap.partial ? "More history exists than was read; raise the limit to include it." : "";
+      $("history-more").textContent = txs.length > MAX_ROWS ? "Showing the latest " + MAX_ROWS + " of " + txs.length + ". The score uses all " + txs.length + "." : "";
       $("history-out").hidden = false;
       return (s.transactionCount || 0) + " transactions read. Calculate the score below.";
     },
@@ -72,7 +73,7 @@
   var preview = AxcelTerm.mount({
     form: $("f-preview"), base: API,
     spec: function () {
-      return [{ method: "GET", path: "/credit-history/" + (account() || "$ADDRESS") + "/score?limit=" + $("h-limit").value, note: "Same history and engine as cold start; identity checks come in Part 2" }];
+      return [{ method: "GET", path: "/credit-history/" + (account() || "$ADDRESS") + "/score", note: "Scored from the full history" }];
     },
     check: function () { return account() ? null : "read your history first."; },
     done: function (f, r) {
@@ -94,9 +95,11 @@
   // Connecting a wallet reads its history straight away.
   document.addEventListener("axcel:wallet", function (e) {
     showWallet(e.detail);
-    if (e.detail) $("f-history").requestSubmit();
+    if ($("history-out").hidden) card(null, e.detail ? "Read your history to calculate your score." : "Connect your wallet to see your score.");
+    if (e.detail && e.detail.address) $("f-history").requestSubmit();
   });
   var w0 = load("axcel.wallet");
   showWallet(w0);
   card(null, w0 ? "Read your history to calculate your score." : "Connect your wallet to see your score.");
+  if (w0 && w0.address) $("f-history").requestSubmit();
 })();

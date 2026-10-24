@@ -1,7 +1,9 @@
+import { loadQuicknodeEnv } from '../src/lib/quicknode.js'
 import { Ap4mPaymentChannel, LocalPaymentChannel } from '../src/mastercard/channel.js'
 import { Ap4mSession, ap4mConfigFromEnv } from '../src/mastercard/ap4m.js'
 import { Paywall, runSlideProof } from '../src/mastercard/x402.js'
 
+loadQuicknodeEnv()
 const live = process.env.MASTERCARD_MODE === 'ap4m'
 const paywall = new Paywall(live ? new Ap4mPaymentChannel(new Ap4mSession(ap4mConfigFromEnv())) : new LocalPaymentChannel())
 const proof = await runSlideProof(paywall)

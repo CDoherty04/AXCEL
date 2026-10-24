@@ -19,7 +19,7 @@ export function snapshotToHistory(snap: CreditHistorySnapshot): AccountHistory {
       type: 'plain_payment',
       ts: Math.floor(Date.parse(t.timestamp) / 1000),
       merchant: t.counterparty,
-      value: t.amount ? Number(t.amount.value) : 0,
+      value: t.amount && Number(t.amount.value) > 0 ? Number(t.amount.value) : 1,
       txHash: t.hash,
     })
   }

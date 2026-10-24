@@ -74,43 +74,12 @@
   }
 
   // ---- what each form sends ----
-  var list = function (v) { return v.split(",").map(function (s) { return s.trim(); }).filter(Boolean); };
   var cents = function (v) { return Math.round(parseFloat(v || 0) * 100); };
   var specs = {
-    "f-link": function (f) {
-      var reqs = [];
-      if (!userId) reqs.push({ method: "POST", path: "/users", body: {}, note: "Create your profile; the reply's id is your USER_ID" });
-      reqs.push({ method: "POST", path: "/users/" + uid() + "/link/challenge", body: { mainnetAccount: f.mainnet.value.trim() }, note: "Get a challenge to sign" });
-      return reqs;
-    },
-    "f-confirm": function (f) {
-      return [{ method: "POST", path: "/users/" + uid() + "/link/confirm", body: {
-        mainnet: { signature: f.mSig.value.trim(), publicKey: f.mPub.value.trim() },
-        devnet: { signature: f.dSig.value.trim(), publicKey: f.dPub.value.trim() }
-      } }];
-    },
-    "f-kya": function (f) {
-      return [{ method: "POST", path: "/users/" + uid() + "/kya", body: {
-        legalName: f.legalName.value.trim(), country: f.country.value.trim(), documentId: f.documentId.value.trim()
-      } }];
-    },
-    "f-score": function () {
-      return [{ method: "POST", path: "/users/" + uid() + "/cold-start" }];
-    },
-    "f-borrow": function (f) {
-      var body = { userId: uid() };
-      if (f.amount.value) body.amount = parseFloat(f.amount.value);
-      return [{ method: "POST", path: "/lending/borrow", body: body }];
-    },
     "f-agent": function (f) {
-      return [{ method: "POST", path: "/users/" + uid() + "/agents", body: {
-        label: f.label.value.trim(),
-        mode: f.mode.value,
-        maxCents: cents(f.max.value),
-        budgetCents: cents(f.budget.value),
-        merchantIds: list(f.merchants.value),
-        items: list(f.items.value).map(function (t) { return { id: t.toLowerCase().replace(/[^a-z0-9]+/g, "-"), title: t }; })
-      } }];
+      var body = { label: f.label.value.trim(), limitCents: cents(f.limit.value) };
+      if (userId) body.userId = userId;
+      return [{ method: "POST", path: "/agents/simple", body: body }];
     },
     "f-repay": function (f) {
       var body = { userId: uid() };
@@ -120,23 +89,17 @@
     }
   };
 
-  // What to do with a successful reply, and the line to print after it.
   var done = {
-    "f-link": function (f, r) {
-      $("challenge").textContent = r.message;
-      $("f-confirm-term").hidden = false;
-      return "Challenge ready. Sign it with both keys below.";
+    "f-agent": function (f, r) {
+      if (r && r.userId) {
+        userId = r.userId;
+        save("axcel.userId", userId);
+        var w = wallet();
+        if (w) remember(w.address, userId);
+        showProfile();
+      }
+      return "Agent " + (r.label || f.label.value.trim()) + " added.";
     },
-    "f-confirm": function () { return "Account linked."; },
-    "f-kya": function () { return "Identity verified."; },
-    "f-score": function (f, r) {
-      $("score-num").textContent = Math.round(r.score);
-      $("score-tier").textContent = "Tier " + r.tier;
-      $("score-out").hidden = false;
-      return "Score ready.";
-    },
-    "f-borrow": function (f, r) { return "Borrowed $" + r.principal + "."; },
-    "f-agent": function () { return "Agent added."; },
     "f-repay": function (f) { return f.full.checked ? "Paid off. Nice work." : "Payment made."; }
   };
 
@@ -148,7 +111,7 @@
       e.preventDefault();
       var btn = form.querySelector("button[type=submit]");
       out(form).textContent = "";
-      if (id !== "f-link" && !userId) { print(form, "error: no USER_ID yet. Link your account first (step 1).", "t-err"); return; }
+      if (id === "f-repay" && !userId) { print(form, "error: add an agent first.", "t-err"); return; }
       btn.disabled = true;
       var reqs = specs[id](form), i = 0, last;
       // Run the calls in order. Creating the profile sets USER_ID, so rebuild the rest with it filled in.
@@ -158,10 +121,10 @@
         print(form, "$ curl -X " + req.method + " " + BASE + req.path, "t-dim");
         return call(form, req).then(function (r) {
           last = r;
-          if (req.path === "/users") {
-            userId = r.id; save("axcel.userId", userId); showProfile();
-            if (form.mainnet.value.trim()) remember(form.mainnet.value.trim(), userId);
-            reqs = specs[id](form); i = 0;
+          if (req.path === "/agents/simple" && r.userId) {
+            userId = r.userId; save("axcel.userId", userId); showProfile();
+            var w = wallet();
+            if (w) remember(w.address, userId);
           }
           return next();
         });
@@ -177,7 +140,6 @@
     var w = wallet();
     if (w) remember(w.address, null);
     userId = null; save("axcel.userId", null); showProfile();
-    $("f-confirm-term").hidden = true; $("score-out").hidden = true;
     renderAll();
   });
 
@@ -191,23 +153,11 @@
     $("conn-text").textContent = "Not connected yet. The commands will run once the service is up (npm run api).";
   });
 
-  // A connected wallet fills in the Mainnet address (step 1) unless you've typed one.
-  function useWallet(w) {
-    var input = $("mainnet");
-    if (w && w.address && (!input.value || input.dataset.fromWallet)) {
-      input.value = w.address;
-      input.dataset.fromWallet = "1";
-      renderCmd($("f-link"));
-    }
-  }
-  $("mainnet").addEventListener("input", function () { delete this.dataset.fromWallet; });
   document.addEventListener("axcel:wallet", function (e) {
-    // Switching wallets switches profiles.
+    // Switching wallets switches profiles. The EVM address is the Mastercard wallet; Mainnet history stays an r-address.
     userId = e.detail ? users()[e.detail.address] || null : load("axcel.userId");
-    $("f-confirm-term").hidden = true; $("score-out").hidden = true;
-    useWallet(e.detail); showProfile(); renderAll();
+    showProfile(); renderAll();
   });
-  useWallet(w0);
 
   showProfile();
   renderAll();

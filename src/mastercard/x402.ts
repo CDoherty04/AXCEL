@@ -177,6 +177,8 @@ export function decodePayment(header: string): PaymentPayload | undefined {
  */
 export class Paywall {
   private readonly claims = new Map<string, StoredClaim>()
+  /** Redeemed balance quoted on the last 402, so a header must pay on top of that quote. */
+  private readonly quoted = new Map<string, bigint>()
   private settled = false
 
   constructor(readonly channel: PaymentChannel) {}
@@ -194,21 +196,43 @@ export class Paywall {
     if (!resource) return { status: 404, body: { error: `unknown resource ${resourceId}` } }
     const requirements = await this.challenge(resourceId)
     if ('status' in requirements) return requirements
-    if (!paymentHeader) return { status: 402, body: requirements }
+    if (!paymentHeader) {
+      const state = await this.channel.state()
+      this.quoted.set(resourceId, state.redeemed)
+      return { status: 402, body: requirements }
+    }
 
     const parsed = decodePayment(paymentHeader)
-    const claim = parsed ? this.claims.get(parsed.payload.claimId) : undefined
     const state = await this.channel.state()
-    const matches = claim
-      && parsed
-      && claim.resourceId === resourceId
-      && claim.channelId === state.channelId
-      && parsed.payload.channelId === state.channelId
-      && parsed.payload.resource === resourcePath(resourceId)
-      && claim.price === resource.price
-    if (!matches) {
+    if (!parsed || parsed.payload.resource !== resourcePath(resourceId) || parsed.payload.channelId !== state.channelId) {
       return { status: 402, body: { ...requirements, error: 'X-PAYMENT header is invalid' } }
     }
+    const known = this.claims.get(parsed.payload.claimId)
+    if (known && known.resourceId === resourceId && known.channelId === state.channelId && known.price === resource.price) {
+      return { status: 200, body: release(resource) }
+    }
+    let cumulative: bigint
+    try {
+      cumulative = BigInt(parsed.payload.cumulativeAmount)
+    } catch {
+      return { status: 402, body: { ...requirements, error: 'X-PAYMENT header is invalid' } }
+    }
+    const quote = this.quoted.get(resourceId)
+    // The agent redeemed after it read this 402. A header that does not raise the quoted balance is refused.
+    const paid = quote !== undefined && parsed.payload.claimId && parsed.payload.txHash && cumulative >= resource.price && state.redeemed >= quote + resource.price
+    if (!paid) {
+      return { status: 402, body: { ...requirements, error: 'X-PAYMENT header is invalid' } }
+    }
+    this.claims.set(parsed.payload.claimId, {
+      resourceId,
+      channelId: state.channelId,
+      claimId: parsed.payload.claimId,
+      txHash: parsed.payload.txHash,
+      cumulative,
+      price: resource.price,
+      signature: parsed.payload.signature,
+    })
+    this.quoted.set(resourceId, state.redeemed)
     return { status: 200, body: release(resource) }
   }
 
@@ -248,6 +272,11 @@ export class Paywall {
       throw new Error('over-cap voucher was redeemed')
     }
     return result
+  }
+
+  /** The slide proof pays first and settles after. A previous receipt must not flip that order. */
+  beginProof(): void {
+    this.settled = false
   }
 
   async settle(claimId: string): Promise<SlideProof['proof']> {
@@ -315,6 +344,7 @@ export class Paywall {
 
 /** Control, payment, and proof for the hackathon slide. Settlement runs only after the resource is released. */
 export async function runSlideProof(paywall: Paywall): Promise<SlideProof> {
+  paywall.beginProof()
   const identity = await paywall.channel.identity()
   const channel = await paywall.channel.open()
   const over = await paywall.rejectOverCap()

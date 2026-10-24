@@ -1,9 +1,15 @@
-/* Connect wallet: GemWallet or Crossmark (browser extensions), or a pasted address.
+/* Connect wallet: MetaMask (XRPL EVM Testnet, chain 1449000) or a pasted 0x address.
    The connected address is kept per browser and announced with an "axcel:wallet" event. */
 (function () {
-  var GEM = "https://cdn.jsdelivr.net/npm/@gemwallet/api@3.8.0/+esm";
-  var CROSSMARK = "https://cdn.jsdelivr.net/npm/@crossmarkio/sdk@0.4.0/+esm";
-  var R_ADDRESS = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
+  var EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
+  var CHAIN_ID = "0x161c28";
+  var CHAIN = {
+    chainId: CHAIN_ID,
+    chainName: "XRPL EVM Testnet",
+    nativeCurrency: { name: "XRP", symbol: "XRP", decimals: 18 },
+    rpcUrls: ["https://rpc.testnet.xrplevm.org"],
+    blockExplorerUrls: ["https://explorer.testnet.xrplevm.org"]
+  };
 
   var btn = document.getElementById("wallet-btn");
   if (!btn) return;
@@ -13,8 +19,9 @@
   function store(v) { try { v ? localStorage.setItem("axcel.wallet", JSON.stringify(v)) : localStorage.removeItem("axcel.wallet"); } catch (e) {} }
 
   var wallet = load();
+  if (wallet && !EVM_ADDRESS.test(wallet.address)) wallet = null;
   window.AXCEL_WALLET = wallet;
-  var short = function (a) { return a.slice(0, 5) + "…" + a.slice(-4); };
+  var short = function (a) { return a.slice(0, 6) + "…" + a.slice(-4); };
 
   function render() {
     btn.innerHTML = wallet
@@ -28,7 +35,6 @@
     document.dispatchEvent(new CustomEvent("axcel:wallet", { detail: v }));
   }
 
-  // ---- menu ----
   var menu = document.createElement("div");
   menu.className = "wallet-menu";
   menu.hidden = true;
@@ -53,16 +59,16 @@
       menu.innerHTML =
         '<p class="wallet-h">Connected' + (wallet.via ? " with " + wallet.via : "") + '</p>' +
         '<p class="mono wallet-addr">' + wallet.address + "</p>" +
+        '<p class="wallet-note">XRPL EVM Testnet</p>' +
         '<button type="button" data-act="copy">Copy address</button>' +
         '<button type="button" data-act="disconnect">Disconnect</button>' +
         '<p class="wallet-note" aria-live="polite"></p>';
     } else {
       menu.innerHTML =
-        '<p class="wallet-h">Connect an XRPL wallet</p>' +
-        '<button type="button" data-act="gem">GemWallet</button>' +
-        '<button type="button" data-act="crossmark">Crossmark</button>' +
-        '<form class="wallet-manual"><label for="wallet-addr">Or paste your address</label>' +
-        '<div><input id="wallet-addr" placeholder="r…" autocomplete="off" spellcheck="false"><button type="submit">Use</button></div></form>' +
+        '<p class="wallet-h">Connect an XRPL EVM wallet</p>' +
+        '<button type="button" data-act="metamask">MetaMask</button>' +
+        '<form class="wallet-manual"><label for="wallet-addr">Or paste your 0x address</label>' +
+        '<div><input id="wallet-addr" placeholder="0x…" autocomplete="off" spellcheck="false"><button type="submit">Use</button></div></form>' +
         '<p class="wallet-note" aria-live="polite"></p>';
     }
   }
@@ -76,41 +82,43 @@
         .then(function () { note("Copied."); }, function () { note("Couldn't copy. Select the address above.", true); });
     }
     if (act === "disconnect") set(null);
-    if (act === "gem") connectGem();
-    if (act === "crossmark") connectCrossmark();
+    if (act === "metamask") connectMetaMask();
   });
 
   menu.addEventListener("submit", function (e) {
     e.preventDefault();
     var a = menu.querySelector("#wallet-addr").value.trim();
-    if (!R_ADDRESS.test(a)) return note("That doesn't look like an XRPL address (starts with r).", true);
-    set({ address: a, via: null });
+    if (!EVM_ADDRESS.test(a)) return note("That doesn't look like an EVM address (0x and 40 hex characters).", true);
+    set({ address: a, via: null, chainId: 1449000 });
   });
 
-  function connectGem() {
-    note("Opening GemWallet…");
-    import(GEM).then(function (gem) {
-      return gem.isInstalled().then(function (r) {
-        if (!r.result || !r.result.isInstalled) throw new Error("GemWallet isn't installed in this browser.");
-        return gem.getAddress();
-      }).then(function (r) {
-        if (!r.result || !r.result.address) throw new Error("GemWallet didn't share an address.");
-        set({ address: r.result.address, via: "GemWallet" });
-      });
-    }).catch(function (err) { note(err.message || "Couldn't reach GemWallet.", true); });
+  function provider() {
+    var eth = window.ethereum;
+    if (!eth) return null;
+    if (eth.providers && eth.providers.length) {
+      var mm = eth.providers.filter(function (p) { return p.isMetaMask; })[0];
+      return mm || eth.providers[0];
+    }
+    return eth;
   }
 
-  function connectCrossmark() {
-    note("Opening Crossmark…");
-    import(CROSSMARK).then(function (m) {
-      var sdk = m.default;
-      if (!sdk.sync.isInstalled()) throw new Error("Crossmark isn't installed in this browser.");
-      return sdk.async.signInAndWait().then(function (r) {
-        var a = r && r.response && r.response.data && r.response.data.address;
-        if (!a) throw new Error("Crossmark didn't share an address.");
-        set({ address: a, via: "Crossmark" });
-      });
-    }).catch(function (err) { note(err.message || "Couldn't reach Crossmark.", true); });
+  function connectMetaMask() {
+    var eth = provider();
+    if (!eth) return note("MetaMask isn't installed in this browser. Paste the 0x address instead.", true);
+    note("Opening MetaMask…");
+    eth.request({ method: "eth_requestAccounts" }).then(function (accounts) {
+      if (!accounts || !accounts[0]) throw new Error("MetaMask didn't share an address.");
+      return eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_ID }] }).catch(function (err) {
+        if (err && (err.code === 4902 || err.code === -32603)) {
+          return eth.request({ method: "wallet_addEthereumChain", params: [CHAIN] });
+        }
+        throw err;
+      }).then(function () { return accounts[0]; });
+    }).then(function (address) {
+      set({ address: address, via: "MetaMask", chainId: 1449000 });
+    }).catch(function (err) {
+      note(err && err.message ? err.message : "Couldn't reach MetaMask.", true);
+    });
   }
 
   render();

@@ -1,4 +1,4 @@
-import { assertClassicAddress, fetchCreditHistory } from "../../lib/quicknode.js";
+import { assertScoreAddress, fetchCreditHistory } from "../../lib/quicknode.js";
 import { computeScore } from "../../scoring/engine.js";
 import { snapshotToHistory } from "../../scoring/quicknodeHistory.js";
 import { badRequest } from "../errors.js";
@@ -13,15 +13,13 @@ export const creditHistoryRoutes: Route[] = [
     async handler(ctx) {
       try {
         const account = ctx.params.account;
-        assertClassicAddress(account);
+        assertScoreAddress(account);
 
-        const limit = parsePositiveInt(ctx.query.get("limit") ?? ctx.query.get("max"), 500, 5_000);
-        const pageSize = parsePositiveInt(ctx.query.get("pageSize") ?? ctx.query.get("page-size"), 100, 400);
-
+        const limitRaw = ctx.query.get("limit") ?? ctx.query.get("max");
         const snapshot = await fetchCreditHistory({
           account,
-          maxTransactions: limit,
-          pageSize,
+          ...(limitRaw ? { maxTransactions: parsePositiveInt(limitRaw, 500, 100_000) } : {}),
+          pageSize: parsePositiveInt(ctx.query.get("pageSize") ?? ctx.query.get("page-size"), 100, 400),
         });
 
         sendJson(ctx.res, 200, snapshot);
@@ -44,9 +42,13 @@ export const creditHistoryRoutes: Route[] = [
     async handler(ctx) {
       try {
         const account = ctx.params.account;
-        assertClassicAddress(account);
-        const limit = parsePositiveInt(ctx.query.get("limit"), 500, 5_000);
-        const snapshot = await fetchCreditHistory({ account, maxTransactions: limit, pageSize: 100 });
+        assertScoreAddress(account);
+        const limitRaw = ctx.query.get("limit");
+        const snapshot = await fetchCreditHistory({
+          account,
+          ...(limitRaw ? { maxTransactions: parsePositiveInt(limitRaw, 500, 100_000) } : {}),
+          pageSize: 100,
+        });
         const history = snapshotToHistory(snapshot);
         const now = Math.floor(Date.now() / 1000);
         const result = computeScore({

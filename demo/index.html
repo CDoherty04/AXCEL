@@ -107,21 +107,14 @@
       <div class="split-copy">
         <h2 class="sec">Score</h2>
         <p class="t-32 display">One score. Every agent.</p>
-        <p class="small">Agent purchases count four times a plain payment.</p>
+        <p class="small" id="dash-note">Connect your wallet to load your score.</p>
       </div>
       <div class="split-body">
         <div class="table-scroll">
           <table>
             <thead><tr><th>Input</th><th class="num">Value</th><th class="num">Effect</th></tr></thead>
-            <tbody>
-              <tr><td>Agent purchases</td><td class="num">6.4</td><td class="num">+0.28</td></tr>
-              <tr><td>Chain payments</td><td class="num">38</td><td class="num">+0.07</td></tr>
-              <tr><td>On-time repayments</td><td class="num">100%</td><td class="num">+0.90</td></tr>
-              <tr><td>Merchants</td><td class="num">5</td><td class="num">+0.17</td></tr>
-              <tr><td>Account age</td><td class="num">41 weeks</td><td class="num">+0.16</td></tr>
-              <tr><td>Disputes</td><td class="num">0</td><td class="num">0.00</td></tr>
-              <tr><td>Late payments</td><td class="num">0</td><td class="num">0.00</td></tr>
-              <tr><td>Utilization</td><td class="num">72%</td><td class="num">-0.36</td></tr>
+            <tbody id="score-rows">
+              <tr><td colspan="3" class="small">No score yet.</td></tr>
             </tbody>
           </table>
         </div>
@@ -162,9 +155,8 @@
         <div class="table-scroll">
           <table>
             <thead><tr><th>Agent</th><th>Mode</th><th class="num">Limit</th><th class="num">Spent</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              <tr><td>Shopper</td><td>Immediate</td><td class="num">$150</td><td class="num" id="sp1">$110</td><td class="status" data-status><span class="mark ok"></span><span>Active</span></td><td class="num"><button class="btn small-btn" type="button" data-revoke>Revoke</button></td></tr>
-              <tr><td>API buyer</td><td>Autonomous</td><td class="num">$100</td><td class="num" id="sp2">$70</td><td class="status" data-status><span class="mark ok"></span><span>Active</span></td><td class="num"><button class="btn small-btn" type="button" data-revoke>Revoke</button></td></tr>
+            <tbody id="agent-rows">
+              <tr><td colspan="6" class="small">No agents yet.</td></tr>
             </tbody>
           </table>
         </div>
@@ -184,10 +176,7 @@
           <table>
             <thead><tr><th>Time</th><th>Agent</th><th>Merchant</th><th class="num">Amount</th><th>Hash</th><th>Status</th></tr></thead>
             <tbody id="purchases">
-              <tr><td>14:02</td><td>API buyer</td><td>Tilework API</td><td class="num">$20</td><td class="mono">A91F…3C07</td><td class="status"><span class="mark ok"></span>Settled</td></tr>
-              <tr class="refused"><td>13:48</td><td>Shopper</td><td>Gearhouse</td><td class="num">$400</td><td class="mono">none</td><td class="status refused"><span class="mark bad"></span>Refused: over limit</td></tr>
-              <tr><td>13:31</td><td>Shopper</td><td>Paperly</td><td class="num">$45</td><td class="mono">7D20…B1E4</td><td class="status"><span class="mark ok"></span>Settled</td></tr>
-              <tr><td>13:12</td><td>API buyer</td><td>Mapcloud</td><td class="num">$50</td><td class="mono">02CC…F98A</td><td class="status"><span class="mark ok"></span>Settled</td></tr>
+              <tr><td colspan="6" class="small">No purchases yet.</td></tr>
             </tbody>
           </table>
         </div>
@@ -207,13 +196,11 @@
           <table>
             <thead><tr><th>Due</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
             <tbody id="schedule">
-              <tr><td>Oct 12</td><td class="num">$15.60</td><td class="status"><span class="mark ok"></span>Paid</td><td></td></tr>
-              <tr data-next><td>Oct 27</td><td class="num">$15.60</td><td class="status"><span class="mark due"></span>Due soon</td><td class="num"><button class="btn small-btn primary" type="button" data-pay>Pay installment</button></td></tr>
-              <tr><td>Nov 26</td><td class="num">$15.60</td><td class="status"><span class="mark wait"></span>Upcoming</td><td></td></tr>
+              <tr><td colspan="4" class="small">No loan yet.</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="after"><button class="btn" type="button" id="payoff">Pay off early</button></p>
+        <p class="after"><button class="btn" type="button" id="payoff" disabled>Pay off early</button></p>
       </div>
     </div>
   </section>

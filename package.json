@@ -12,6 +12,7 @@
     "ap4m-agent": "node integrations/ap4m/ap4m-agent.cjs",
     "ap4m-proof": "tsx scripts/ap4m-proof.ts",
     "x402": "tsx src/api/x402Server.ts",
+    "x402-agent": "tsx scripts/x402-agent.ts",
     "bootstrap": "tsx scripts/bootstrap.ts",
     "vi:smoke": ".venv/Scripts/python vi_bridge/smoke.py",
     "resilience": "tsx scripts/resilience.ts"

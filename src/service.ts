@@ -10,7 +10,7 @@ import { currentTier, existingTiers, issueTierCredential, tierRefreshTransaction
 import { createChallenge, signChallenge, verifyChallenge } from './identity/challenge.js'
 import { agentDocument, didFor, publishDid, userDocument, type DidDocument } from './identity/did.js'
 import { issueKya, kyaStatus, tierStatus, type KycProvider } from './identity/kya.js'
-import type { AgentRegistry, NetworkAuthorizer } from './mastercard/agentPay.js'
+import type { AgentRegistry, AuthorizationResult, NetworkAuthorizer } from './mastercard/agentPay.js'
 import { findSelfDealing, type MerchantResolver } from './scoring/antiGaming.js'
 import { computeScore } from './scoring/engine.js'
 import type { HistoryReader } from './scoring/history.js'
@@ -336,6 +336,30 @@ export class CreditService {
 
   // ------------------------------------------------------------------ agents
 
+  /** Demo: name and a spending limit. Creates the profile, identity credential and a default merchant when needed. */
+  async addNamedAgent(userId: string | undefined, label: string, limitCents: number) {
+    let id = userId
+    if (!id || !this.store.state.users[id]) id = (await this.createUser(id)).id
+    const u = this.store.user(id)
+    if (!(await kyaStatus(this.ledger, u.account, this.service.address)).valid) {
+      await this.verifyOwner(id, { legalName: label, country: 'US', documentId: u.account })
+    }
+    let merchant = Object.values(this.store.state.merchants)[0]
+    if (!merchant) {
+      const created = await this.registerMerchant({ name: 'Agent Pay', website: 'https://hackathon.ap4m.build' })
+      merchant = this.store.state.merchants[created.id]
+    }
+    const agent = await this.addAgent(id, {
+      label,
+      mode: 'autonomous',
+      maxCents: limitCents,
+      budgetCents: limitCents,
+      merchantIds: [merchant.id],
+      items: [{ id: 'purchase', title: 'Purchase' }],
+    })
+    return { userId: id, ...agent }
+  }
+
   async addAgent(userId: string, opts: AgentOptions): Promise<PublicAgent> {
     const u = this.store.user(userId)
     const kya = await kyaStatus(this.ledger, u.account, this.service.address)
@@ -441,7 +465,7 @@ export class CreditService {
    * purchase scores only after the pot's Payment validates on XRPL with the chain hash in its Memos. If any step
    * after authorization fails the purchase stays pending and `reconcile()` finishes it.
    */
-  async settlePurchase(agentId: string, chain: ViChain) {
+  async settlePurchase(agentId: string, chain: ViChain, prior?: AuthorizationResult) {
     const { user: u, agent } = this.agentOf(agentId)
     if (agent.status !== 'active') throw new HttpError(403, 'agent is revoked')
     if (!(await this.d.registry.isRegistered(agent.mastercardAgentId))) throw new HttpError(403, 'agent is not registered with Mastercard')
@@ -481,6 +505,12 @@ export class CreditService {
       const p: PendingPurchase = {
         id: `p_${randomUUID().slice(0, 8)}`, agentId: agent.id, viHash, mode: v.mode!, amountCents, merchantId: merchant!.id,
         merchantAccount: merchant!.account, chain, state: 'validated', attempts: 0, createdAt: now, updatedAt: now,
+      }
+      // A voucher the agent already redeemed (the 402 client) is reused. Authorizing again would redeem a second one.
+      if (prior?.approved && prior.evidence?.claimId) {
+        p.state = 'authorized'
+        p.authorizationId = prior.authorizationId
+        p.evidence = prior.evidence
       }
       u.pending.push(p)
       this.store.save()
@@ -644,8 +674,8 @@ export class CreditService {
   }
 
   /** Demo path: the agent builds its chain and settles in one call. */
-  async purchase(agentId: string, order: { merchantId: string; item: Item; amountCents: number }) {
-    return this.settlePurchase(agentId, await this.buildChain(agentId, order))
+  async purchase(agentId: string, order: { merchantId: string; item: Item; amountCents: number }, prior?: AuthorizationResult) {
+    return this.settlePurchase(agentId, await this.buildChain(agentId, order), prior)
   }
 
   // ------------------------------------------------------------------ repayment

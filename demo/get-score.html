@@ -55,7 +55,7 @@
       <div class="split-copy">
         <h2 class="sec">1. Connect your wallet</h2>
         <p class="t-32 display">Start with the account you already use.</p>
-        <p class="small">GemWallet, Crossmark, or paste an address. Reading history needs no signature.</p>
+        <p class="small">MetaMask on XRPL EVM Testnet, or paste a 0x address. This is the wallet Mastercard Agent Pay uses.</p>
       </div>
       <div class="split-body">
         <div class="wallet-panel">
@@ -71,20 +71,14 @@
     <div class="split" id="history">
       <div class="split-copy">
         <h2 class="sec">2. Your transaction history</h2>
-        <p class="t-32 display">Read straight from Mainnet.</p>
-        <p class="small">QuickNode's archive returns every transaction on the account, oldest activity included.</p>
+        <p class="t-32 display">Read the full history.</p>
+        <p class="small">The full history of this address is scored. The table shows the latest five.</p>
       </div>
       <div class="split-body">
         <div class="term">
           <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ history</span></div>
           <form class="form term-body" id="f-history">
-            <div class="field-row">
-              <div class="field"><label for="h-account">XRPL Mainnet address</label><input id="h-account" name="account" required placeholder="r…" autocomplete="off" spellcheck="false"></div>
-              <div class="field">
-                <label for="h-limit">How many transactions</label>
-                <select id="h-limit" name="limit"><option value="50">50</option><option value="200" selected>200</option><option value="500">500</option></select>
-              </div>
-            </div>
+            <div class="field"><label for="h-account">Address</label><input id="h-account" name="account" required placeholder="0x…" autocomplete="off" spellcheck="false"></div>
             <pre class="term-cmd"></pre>
             <p><button class="btn primary" type="submit">Read history</button></p>
             <p class="result" aria-live="polite"></p>
@@ -158,132 +152,18 @@
   <section class="wrap">
     <div class="part-head">
       <p class="part-num">Part 2</p>
-      <h2 class="display t-32">Borrow and spend</h2>
+      <h2 class="display t-32">Agents</h2>
       <p class="part-by"><span class="small">On</span><img src="logos/xrpl.svg" alt="XRPL"><img class="mc" src="logos/mastercard.svg" alt="Mastercard"></p>
     </div>
     <p class="small after" id="profile-line" hidden>Profile <span class="mono" id="profile-id"></span> · <button class="linkish" type="button" id="reset">Start over</button></p>
   </section>
 
   <section class="wrap">
-    <div class="split" id="link">
-      <div class="split-copy">
-        <h2 class="sec">1. Link your account</h2>
-        <p class="t-32 display">Your history is your head start.</p>
-        <p class="small">We only score accounts you can sign for.</p>
-      </div>
-      <div class="split-body">
-        <div class="term" id="f-link-term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ link</span></div>
-          <form class="form term-body" id="f-link">
-          <div class="field">
-            <label for="mainnet">Your XRPL Mainnet address</label>
-            <input id="mainnet" name="mainnet" required placeholder="r…" autocomplete="off" spellcheck="false">
-          </div>
-          <pre class="term-cmd"></pre>
-          <p><button class="btn primary" type="submit">Get my challenge</button></p>
-          <p class="result" aria-live="polite"></p>
-        </form>
-        </div>
-        <div class="term" hidden id="f-confirm-term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ confirm</span></div>
-          <form class="form term-body" id="f-confirm">
-          <div class="field">
-            <label>Sign this message with both keys</label>
-            <pre class="challenge" id="challenge"></pre>
-          </div>
-          <div class="field-row">
-            <div class="field"><label for="m-sig">Mainnet signature</label><input id="m-sig" name="mSig" required spellcheck="false"></div>
-            <div class="field"><label for="m-pub">Mainnet public key</label><input id="m-pub" name="mPub" required spellcheck="false"></div>
-          </div>
-          <div class="field-row">
-            <div class="field"><label for="d-sig">Devnet signature</label><input id="d-sig" name="dSig" required spellcheck="false"></div>
-            <div class="field"><label for="d-pub">Devnet public key</label><input id="d-pub" name="dPub" required spellcheck="false"></div>
-          </div>
-          <pre class="term-cmd"></pre>
-          <p><button class="btn primary" type="submit">Confirm ownership</button></p>
-          <p class="result" aria-live="polite"></p>
-        </form>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap">
-    <div class="split" id="verify">
-      <div class="split-copy">
-        <h2 class="sec">2. Verify your identity</h2>
-        <p class="t-32 display">A real person behind every agent.</p>
-        <p class="small">Only a credential goes on the ledger, not your details.</p>
-      </div>
-      <div class="split-body">
-        <div class="term" id="f-kya-term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ verify</span></div>
-          <form class="form term-body" id="f-kya">
-          <div class="field"><label for="legal">Legal name</label><input id="legal" name="legalName" required autocomplete="name"></div>
-          <div class="field-row">
-            <div class="field"><label for="country">Country</label><input id="country" name="country" required placeholder="US" autocomplete="country"></div>
-            <div class="field"><label for="doc">Document ID</label><input id="doc" name="documentId" required autocomplete="off"></div>
-          </div>
-          <pre class="term-cmd"></pre>
-          <p><button class="btn primary" type="submit">Verify</button></p>
-          <p class="result" aria-live="polite"></p>
-        </form>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap">
-    <div class="split" id="score">
-      <div class="split-copy">
-        <h2 class="sec">3. Record your score</h2>
-        <p class="t-32 display">Make it official.</p>
-        <p class="small">The same QuickNode history, now scored with your verified identity. This is the score your tier credential carries.</p>
-      </div>
-      <div class="split-body">
-        <div class="term" id="f-score-term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ score</span></div>
-          <form class="form term-body" id="f-score">
-          <pre class="term-cmd"></pre>
-          <p><button class="btn primary" type="submit">Read my history</button></p>
-          <div class="score-out" id="score-out" hidden>
-            <p class="display t-96" id="score-num"></p>
-            <span class="tier" id="score-tier"></span>
-          </div>
-          <p class="result" aria-live="polite"></p>
-        </form>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap">
-    <div class="split" id="borrow">
-      <div class="split-copy">
-        <h2 class="sec">4. Borrow</h2>
-        <p class="t-32 display">Your tier sets your line.</p>
-        <p class="small">Leave the amount blank to draw your full line.</p>
-      </div>
-      <div class="split-body">
-        <div class="term" id="f-borrow-term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ borrow</span></div>
-          <form class="form term-body" id="f-borrow">
-          <div class="field"><label for="borrow-amt">Amount ($)</label><input id="borrow-amt" name="amount" type="number" min="1" step="1" placeholder="Full line"></div>
-          <pre class="term-cmd"></pre>
-          <p><button class="btn primary" type="submit">Borrow</button></p>
-          <p class="result" aria-live="polite"></p>
-        </form>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap">
     <div class="split" id="agents">
       <div class="split-copy">
-        <h2 class="sec">5. Add an agent</h2>
-        <p class="t-32 display">Each agent has its own limit.</p>
-        <p class="small">It can spend from your line, never your keys.</p>
+        <h2 class="sec">1. Add an agent</h2>
+        <p class="t-32 display">A name and a limit.</p>
+        <p class="small">It can spend up to that amount from your line.</p>
       </div>
       <div class="split-body">
         <div class="term" id="f-agent-term">
@@ -291,20 +171,8 @@
           <form class="form term-body" id="f-agent">
           <div class="field-row">
             <div class="field"><label for="a-label">Agent name</label><input id="a-label" name="label" required placeholder="Shopper"></div>
-            <div class="field">
-              <label for="a-mode">Mode</label>
-              <select id="a-mode" name="mode">
-                <option value="immediate">Immediate: I approve each order</option>
-                <option value="autonomous">Autonomous: it buys within limits</option>
-              </select>
-            </div>
+            <div class="field"><label for="a-limit">Limit ($)</label><input id="a-limit" name="limit" type="number" min="1" step="1" required placeholder="50"></div>
           </div>
-          <div class="field-row">
-            <div class="field"><label for="a-max">Max per purchase ($)</label><input id="a-max" name="max" type="number" min="1" step="0.01" required placeholder="50"></div>
-            <div class="field"><label for="a-budget">Total budget ($)</label><input id="a-budget" name="budget" type="number" min="1" step="0.01" required placeholder="150"></div>
-          </div>
-          <div class="field"><label for="a-merchants">Merchants it may pay</label><input id="a-merchants" name="merchants" required placeholder="Merchant IDs, separated by commas"></div>
-          <div class="field"><label for="a-items">What it may buy</label><input id="a-items" name="items" required placeholder="Paper, Ink"></div>
           <pre class="term-cmd"></pre>
           <p><button class="btn primary" type="submit">Add agent</button></p>
           <p class="result" aria-live="polite"></p>
@@ -317,7 +185,7 @@
   <section class="wrap">
     <div class="split" id="repay">
       <div class="split-copy">
-        <h2 class="sec">6. Repay</h2>
+        <h2 class="sec">2. Repay</h2>
         <p class="t-32 display">Pay on time. Move up.</p>
         <p class="small">Early payoff counts as on time.</p>
       </div>

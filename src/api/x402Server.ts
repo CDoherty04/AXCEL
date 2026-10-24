@@ -1,9 +1,11 @@
 import express from 'express'
+import { loadQuicknodeEnv } from '../lib/quicknode.js'
 import { Ap4mSession, ap4mConfigFromEnv } from '../mastercard/ap4m.js'
 import { Ap4mPaymentChannel, LocalPaymentChannel } from '../mastercard/channel.js'
 import { Paywall } from '../mastercard/x402.js'
 import { mountX402 } from './x402Routes.js'
 
+loadQuicknodeEnv()
 const live = process.env.MASTERCARD_MODE === 'ap4m'
 const paywall = new Paywall(live ? new Ap4mPaymentChannel(new Ap4mSession(ap4mConfigFromEnv())) : new LocalPaymentChannel())
 const port = Number(process.env.X402_PORT ?? 4020)

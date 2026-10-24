@@ -162,14 +162,39 @@
   });
   AxcelTerm.mount({
     form: $("f-pay"), base: X402,
-    spec: function (f) { return [{ method: "POST", path: "/x402/resources/" + f.res.value + "/pay" }]; },
+    spec: function (f) {
+      return [{ method: "POST", path: "/x402/agent", body: { resource: f.res.value }, note: "Reads the 402, pays only if the price fits the channel, then retries with the voucher" }];
+    },
     done: function (f, r) {
-      if (r && r.voucher) {
-        $("x-claim").value = r.voucher.claimId;
-        $("f-settle").dispatchEvent(new Event("input"));
-        return "Voucher signed and redeemed; resource released. Claim ID copied into Settle below.";
+      if (!r || r.declined || !r.voucher) return "Refused: " + ((r && r.declined) || "payment declined") + ". Nothing was redeemed.";
+      $("x-claim").value = r.voucher.claimId;
+      $("f-settle").dispatchEvent(new Event("input"));
+      var agent = $("b-agent").value;
+      var merchant = $("b-merchant").value.trim();
+      var item = ($("b-item").value || "").trim() || (r.resource && r.resource.title) || "Credit briefing";
+      var cents = Math.max(1, Math.round(parseFloat(r.rlusd || "0") * 100));
+      if (!userId || !agent || !merchant) {
+        return "Voucher redeemed and settled (" + short(r.voucher.txHash) + "). Pick an agent and a merchant under Make a purchase to anchor it on XRPL.";
       }
-      return "Refused: " + ((r && r.declineReason) || "payment declined") + ". Nothing was redeemed.";
+      return fetch(API + "/payments/agentic/demo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentId: agent,
+          merchantId: merchant,
+          item: { id: slug(item), title: item },
+          amountCents: cents,
+          network: { claimId: r.voucher.claimId, redeemTx: r.voucher.txHash, channelId: r.voucher.channelId, rlusd: r.rlusd }
+        })
+      }).then(function (res) {
+        return res.json().then(function (body) {
+          if (!res.ok) return "Voucher settled (" + short(r.voucher.txHash) + "). XRPL anchor failed: " + (body.error || ("HTTP " + res.status));
+          refresh();
+          return "Voucher settled and anchored on XRPL " + short(body.txHash) + ". Score " + (body.score == null ? "—" : Math.round(body.score)) + ".";
+        });
+      }, function () {
+        return "Voucher settled (" + short(r.voucher.txHash) + "). The AXCEL service isn't running, so it isn't on the score yet.";
+      });
     }
   });
   AxcelTerm.mount({
