@@ -95,6 +95,27 @@ This QuickNode module does **not** map ledger rows to `CreditEvent` yet. Intende
 2. Adapter (Caleb/Charlie): map payments to `chain_payment` events (`at` = ms epoch, merchant ids from counterparty / KYA)
 3. Pass events into the existing score + `src/system.ts` origination path
 
+## AP4M agentic payments (`integrations/ap4m/`)
+
+Mastercard hackathon kit: SDK + end-to-end agent script (sign-in → channel → 1 RLUSD pay → settle → close).
+
+```bash
+npm install
+npm run ap4m-agent
+```
+
+| Env (`.env.local`) | Required |
+| --- | --- |
+| `AGENT_PRIVATE_KEY` | Yes — agent wallet key (never commit) |
+| `TEAM_NAME` | Yes — portal registration |
+| `AP4M_API_URL` | Optional — defaults to `https://hackathon.ap4m.build` |
+| `CHANNEL_ID` | Optional — reuse open channel; omit to open new |
+| `CHANNEL_CAP` | Optional — RLUSD cap for new channel (default `5`) |
+
+Portal: register **agent wallet address** (not the private key) on My setup. Agent needs **gas** on the hackathon EVM chain. RPC/ledger come from `GET /public/config` unless you override `AP4M_RPC_URL` / `PAYMENT_LEDGER`.
+
+REST stub: `POST /api/v1/payments/agentic` — wire to SDK or trigger `ap4m-agent` flow later.
+
 ## Out of scope here
 
 - Devnet / testnet (mainnet QuickNode only)

@@ -8,7 +8,11 @@
     "demo": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "qn-backlog": "node scripts/qn-backlog.mjs",
-    "api": "tsx src/api/server.ts"
+    "api": "tsx src/api/server.ts",
+    "ap4m-agent": "node integrations/ap4m/ap4m-agent.cjs"
+  },
+  "dependencies": {
+    "ethers": "^6.17.0"
   },
   "exports": {
     "./quicknode/credit-history": "./lib/index.mjs"
