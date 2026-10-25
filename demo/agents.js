@@ -115,14 +115,6 @@
   });
   $("refresh").addEventListener("click", refresh);
 
-  // ---- merchants registered from this browser ----
-  function merchants() { return load("axcel.merchants") || []; }
-  function renderMerchants() {
-    var m = merchants();
-    // Registered merchants only feed the buy form's suggestions; registration stays in the API.
-    $("merchant-ids").innerHTML = m.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + "</option>"; }).join("");
-  }
-
   // ---- terminals ----
   // A wallet's profile is created with its first agent (same call as Get your score), which also verifies the
   // owner and registers a default merchant. After that, agents carry their own merchants and items.
@@ -176,7 +168,8 @@
     spec: function (f) {
       var t = f.item.value.trim();
       var agent = f.agent.value || "$AGENT_ID";
-      var merchant = f.merchant.value.trim();
+      var chosen = agents.filter(function (x) { return x.id === f.agent.value; })[0];
+      var merchant = chosen && chosen.merchants && chosen.merchants[0] ? chosen.merchants[0].id : "$MERCHANT_ID";
       return [{
         method: "POST", path: "/payments/agentic/demo", body: {
           agentId: agent, merchantId: merchant, item: { id: slug(t), title: t }, amountCents: cents(f.amount.value)
@@ -296,7 +289,6 @@
   });
 
   document.addEventListener("axcel:wallet", refresh);
-  renderMerchants();
   renderRun();
   refresh();
 })();

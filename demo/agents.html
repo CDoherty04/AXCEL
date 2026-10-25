@@ -144,15 +144,11 @@
         <div class="term">
           <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ buy</span></div>
           <form class="form term-body" id="f-buy">
-            <datalist id="merchant-ids"></datalist>
             <div class="field">
               <label for="b-agent">Agent</label>
               <select id="b-agent" name="agent" required><option value="">Connect your wallet first</option></select>
             </div>
-            <div class="field-row">
-              <div class="field"><label for="b-merchant">Merchant ID</label><input id="b-merchant" name="merchant" required list="merchant-ids" placeholder="m_…" spellcheck="false"></div>
-              <div class="field"><label for="b-amount">Amount ($)</label><input id="b-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="20"></div>
-            </div>
+            <div class="field"><label for="b-amount">Amount ($)</label><input id="b-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="20"></div>
             <div class="field"><label for="b-item">Item</label><input id="b-item" name="item" required placeholder="Paper"></div>
             <pre class="term-cmd"></pre>
             <p><button class="btn primary" type="submit">Buy</button></p>
