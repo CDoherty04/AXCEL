@@ -1,8 +1,10 @@
-/* Get your score: each terminal shows the exact API call its form will make (curl), runs it against
-   the AXCEL API (npm run api) and prints the response. */
+/* Get your score: each terminal shows the axcel command its form will run, calls the AXCEL API
+   (npm run api) and prints the response. */
 (function () {
   var BASE = (window.AXCEL_API || "http://127.0.0.1:3000") + "/api/v1";
   var $ = function (id) { return document.getElementById(id); };
+  var esc = AxcelTerm.esc;
+  var flags = AxcelTerm.flags;
 
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function save(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
@@ -25,21 +27,11 @@
     $("profile-id").textContent = userId || "";
   }
 
-  // ---- curl rendering ----
-  function q(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
-  function curl(req) {
-    var lines = ["curl -s -X " + req.method + " " + BASE + req.path];
-    if (req.body) {
-      lines.push("  -H 'Content-Type: application/json'");
-      lines.push("  -d " + q(JSON.stringify(req.body)));
-    }
-    return lines.join(" \\\n");
-  }
-  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
   function renderCmd(form) {
     var reqs = specs[form.id](form);
     form.querySelector(".term-cmd").innerHTML = reqs.map(function (r) {
-      return (r.note ? '<span class="t-dim"># ' + esc(r.note) + "</span>\n" : "") + '<span class="t-prompt">$</span> ' + esc(curl(r));
+      return (r.note ? '<span class="t-dim"># ' + esc(r.note) + "</span>\n" : "") +
+        '<span class="t-prompt">$</span> ' + esc(AxcelTerm.command(r));
     }).join("\n\n");
   }
   function renderAll() { Object.keys(specs).forEach(function (id) { renderCmd($(id)); }); }
@@ -63,31 +55,43 @@
       return res.text().then(function (txt) {
         var data = {};
         try { data = txt ? JSON.parse(txt) : {}; } catch (e) {}
-        print(form, "HTTP " + res.status, res.ok ? "t-ok" : "t-err");
-        if (txt) print(form, JSON.stringify(data, null, 2), "t-json");
         if (!res.ok) throw new Error(data.error || "request failed");
         return data;
       });
     }, function () {
       var host = BASE.replace(/^https?:\/\//, "").split("/")[0].split(":");
-      print(form, "curl: (7) Failed to connect to " + host[0] + " port " + (host[1] || 80) + ": Connection refused", "t-err");
+      print(form, "axcel: failed to connect to " + host[0] + " port " + (host[1] || 80) + ": Connection refused", "t-err");
       throw new Error("The AXCEL service isn't running yet. Start it with: npm run api");
     });
   }
 
   // ---- what each form sends ----
   var cents = function (v) { return Math.round(parseFloat(v || 0) * 100); };
+  var money = function (n) { return "$" + (Math.round(Number(n) * 100) / 100).toLocaleString(); };
+  var short = function (h) { return h ? String(h).slice(0, 6) + "…" + String(h).slice(-4) : "none"; };
   var specs = {
     "f-repay": function (f) {
       var body = { userId: uid() };
       if (f.full.checked) body.full = true;
       else if (f.amount.value) body.amount = parseFloat(f.amount.value);
-      return [{ method: "POST", path: "/lending/repay", body: body }];
+      return [{
+        method: "POST",
+        path: "/lending/repay",
+        body: body,
+        cmd: "axcel repay" + flags({ user: uid(), amount: f.full.checked ? "" : f.amount.value, full: f.full.checked })
+      }];
     }
   };
 
   var done = {
-    "f-repay": function (f) { return f.full.checked ? "Paid off. Nice work." : "Payment made."; }
+    "f-repay": function (f, r) {
+      var paid = r && r.paid != null ? money(r.paid) : (f.amount.value ? money(f.amount.value) : "");
+      return [
+        (f.full.checked || (r && r.loanClosed) ? "Paid off" : "Paid") + (paid ? " " + paid : ""),
+        r && r.score != null ? "Score " + Math.round(r.score) + (r.tier ? " · Tier " + r.tier : "") : "",
+        r && r.txHash ? "XRPL " + short(r.txHash) : ""
+      ];
+    }
   };
 
   Object.keys(specs).forEach(function (id) {
@@ -103,13 +107,13 @@
       btn.disabled = true;
       btn.textContent = "Waiting…";
       form.setAttribute("aria-busy", "true");
-      print(form, "# waiting…", "t-wait");
+      print(form, "waiting…", "t-wait");
       var reqs = specs[id](form), i = 0, last;
       // Run the calls in order. Creating the profile sets USER_ID, so rebuild the rest with it filled in.
       function next() {
         if (i >= reqs.length) return Promise.resolve();
         var req = reqs[i++];
-        print(form, "$ curl -X " + req.method + " " + BASE + req.path, "t-dim");
+        print(form, "$ " + AxcelTerm.command(req), "t-dim");
         return call(form, req).then(function (r) {
           last = r;
           if (req.path === "/agents/simple" && r.userId) {
@@ -121,7 +125,7 @@
         });
       }
       next()
-        .then(function () { print(form, "# " + done[id](form, last), "t-ok"); })
+        .then(function () { AxcelTerm.lines(form, done[id](form, last)); })
         .catch(function (err) { print(form, "error: " + err.message, "t-err"); })
         .then(function () {
           form.querySelectorAll(".result .t-wait").forEach(function (el) { el.remove(); });

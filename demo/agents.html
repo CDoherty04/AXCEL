@@ -156,6 +156,7 @@
           <form class="form term-body" id="f-run">
             <div class="field"><label for="r-agent">Agent</label><select id="r-agent" name="agent" required><option value="">Connect your wallet first</option></select></div>
             <div class="field"><label for="r-task">Task</label><input id="r-task" name="task" required maxlength="500" placeholder="Restock the office: buy paper and ink"></div>
+            <pre class="term-cmd"></pre>
             <p><button class="btn primary" type="submit">Run agent</button></p>
             <p class="result" id="run-log" aria-live="polite"></p>
           </form>
@@ -328,7 +329,7 @@
 </footer>
 
 <script src="term.js?v=7"></script>
-<script src="agents.js?v=9"></script>
+<script src="agents.js?v=10"></script>
 <script src="nav.js"></script>
 <script src="wallet.js"></script>
 <script src="reveal.js"></script>

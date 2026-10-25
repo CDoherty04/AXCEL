@@ -1,10 +1,12 @@
 /* Agent dashboard: the connected wallet's agents, purchases and alerts (AXCEL API, npm run api), plus the
-   Agent Pay for Machines paywall (npm run x402). Every action is a terminal that shows its curl. */
+   Agent Pay for Machines paywall (npm run x402). Every action is a terminal that shows its axcel command. */
 (function () {
   var API = (window.AXCEL_API || "http://127.0.0.1:3000") + "/api/v1";
   var X402 = window.AXCEL_X402 || "http://127.0.0.1:4020";
   var $ = function (id) { return document.getElementById(id); };
   var esc = AxcelTerm.esc;
+  var sh = AxcelTerm.sh;
+  var flags = AxcelTerm.flags;
 
   function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
   function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
@@ -63,6 +65,7 @@
       : '<option value="">' + (p ? "No active agents. Add one above" : !load("axcel.wallet") ? "Connect your wallet first" : !userId ? "Add your first agent above" : "Couldn't load agents (is npm run api running?)") + "</option>";
     buy.render();
     $("r-agent").innerHTML = $("b-agent").innerHTML;
+    renderRun();
 
     var label = {};
     agents.forEach(function (a) { label[a.id] = a.label; });
@@ -131,10 +134,23 @@
     spec: function (f) {
       var max = cents(f.max.value), budget = cents(f.budget.value), limit = budget || max || 100000;
       var label = f.label.value.trim();
-      if (!userId) return [{ method: "POST", path: "/agents/simple", body: { label: label, limitCents: limit, wallet: (load("axcel.wallet") || {}).address }, note: "First agent: creates your profile" }];
-      return [{ method: "POST", path: "/users/" + userId + "/agents", body: {
-        label: label, mode: f.mode.value, maxCents: max || limit, budgetCents: budget || limit, merchantIds: [], items: []
-      } }];
+      var dollars = function (c) { var n = c / 100; return Number.isInteger(n) ? String(n) : n.toFixed(2); };
+      if (!userId) {
+        return [{
+          method: "POST", path: "/agents/simple", body: { label: label, limitCents: limit, wallet: (load("axcel.wallet") || {}).address },
+          cmd: "axcel agents add" + flags({ label: label, limit: dollars(limit) }),
+          note: "First agent: creates your profile"
+        }];
+      }
+      return [{
+        method: "POST", path: "/users/" + userId + "/agents", body: {
+          label: label, mode: f.mode.value, maxCents: max || limit, budgetCents: budget || limit, merchantIds: [], items: []
+        },
+        cmd: "axcel agents add" + flags({
+          user: userId, label: label, mode: f.mode.value,
+          max: dollars(max || limit), budget: dollars(budget || limit)
+        })
+      }];
     },
     check: function () { return load("axcel.wallet") ? null : "connect your wallet first."; },
     done: function (f, r) {
@@ -144,20 +160,35 @@
         if (w) { users[w.address] = r.userId; save("axcel.users", users); }
         userId = r.userId;
       }
-      return "Agent " + r.label + " added with its own spending account " + short(r.pot && r.pot.account) + ".";
+      var limit = r.maxCents != null ? r.maxCents / 100 : "";
+      var budget = r.budgetCents != null ? r.budgetCents / 100 : "";
+      return [
+        "Agent " + r.label + " added",
+        (r.mode ? r.mode[0].toUpperCase() + r.mode.slice(1) : "Agent") +
+          (limit !== "" ? " · " + money(limit) + " per buy" : "") +
+          (budget !== "" ? " · " + money(budget) + " budget" : ""),
+        r.pot && r.pot.account ? "Spending account " + short(r.pot.account) : ""
+      ];
     },
     after: refresh
   });
 
   AxcelTerm.mount({
     form: $("f-merchant"), base: API,
-    spec: function (f) { return [{ method: "POST", path: "/merchants", body: { name: f.name.value.trim(), website: f.website.value.trim() } }]; },
+    spec: function (f) {
+      var name = f.name.value.trim(), website = f.website.value.trim();
+      return [{ method: "POST", path: "/merchants", body: { name: name, website: website }, cmd: "axcel merchants add" + flags({ name: name, website: website }) }];
+    },
     done: function (f, r) {
       var m = merchants().filter(function (x) { return x.id !== r.id; });
       m.push({ id: r.id, name: r.name, account: r.account });
       save("axcel.merchants", m);
       renderMerchants();
-      return "Merchant " + r.id + " registered. Use this ID when adding agents and buying.";
+      return [
+        (r.name || "Merchant") + " registered",
+        "ID " + r.id,
+        r.account ? "Account " + short(r.account) : ""
+      ];
     }
   });
 
@@ -166,16 +197,37 @@
     check: function (f) { return needUser() || (!f.agent.value ? "pick an agent (add one above first)." : null); },
     spec: function (f) {
       var t = f.item.value.trim();
-      return [{ method: "POST", path: "/payments/agentic/demo", body: {
-        agentId: f.agent.value || "$AGENT_ID", merchantId: f.merchant.value.trim(), item: { id: slug(t), title: t }, amountCents: cents(f.amount.value)
-      }, note: "The service builds the Verifiable Intent chain, then settles it" }];
+      var agent = f.agent.value || "$AGENT_ID";
+      var merchant = f.merchant.value.trim();
+      return [{
+        method: "POST", path: "/payments/agentic/demo", body: {
+          agentId: agent, merchantId: merchant, item: { id: slug(t), title: t }, amountCents: cents(f.amount.value)
+        },
+        cmd: "axcel buy" + flags({ agent: agent, merchant: merchant, item: t, amount: f.amount.value }),
+        note: "The service builds the Verifiable Intent chain, then settles it"
+      }];
     },
-    done: function (f, r) { return r && r.txHash ? "Settled on XRPL: " + short(r.txHash) + "." : "Submitted. Settlement may still be finishing; Refresh shows its state."; },
+    done: function (f, r) {
+      if (!r || !r.txHash) return ["Submitted · settlement still finishing", "Refresh to see its state"];
+      return [
+        "Settled" + (r.amount != null ? " " + money(r.amount) : ""),
+        "XRPL " + short(r.txHash) + (r.score != null ? " · score " + Math.round(r.score) : "")
+      ];
+    },
     after: refresh
   });
 
   // ---- Claude-driven agent runs ----
   var runTimer = null;
+  function runCommand() {
+    var f = $("f-run");
+    return "axcel agents run " + sh(f.agent.value || "$AGENT_ID") + flags({ task: f.task.value.trim() || "…" });
+  }
+  function renderRun() {
+    $("f-run").querySelector(".term-cmd").innerHTML = '<span class="t-prompt">$</span> ' + esc(runCommand());
+  }
+  $("f-run").addEventListener("input", renderRun);
+  $("f-run").addEventListener("change", renderRun);
   function logStep(s) {
     var cls = { error: "t-err", result: "t-ok", final: "t-ok", thought: "t-dim", tool: "t-json" }[s.kind] || "";
     var line = document.createElement("span");
@@ -189,6 +241,7 @@
     log.textContent = "";
     var problem = needUser() || (!f.agent.value ? "pick an agent (add one above first)." : null);
     if (problem) { logStep({ kind: "error", text: "error: " + problem }); return; }
+    logStep({ kind: "tool", text: runCommand() });
     btn.disabled = true;
     function fail(msg) { logStep({ kind: "error", text: "error: " + msg }); btn.disabled = false; }
     fetch(API + "/agents/" + encodeURIComponent(f.agent.value) + "/run", {
@@ -213,27 +266,37 @@
   var units = function (v) { return (Number(BigInt(v || "0")) / 1e18).toString(); };
   AxcelTerm.mount({
     form: $("f-price"), base: X402,
-    spec: function (f) { return [{ method: "GET", path: "/x402/resources/" + f.res.value }]; },
+    spec: function (f) { return [{ method: "GET", path: "/x402/resources/" + f.res.value, cmd: "axcel price " + sh(f.res.value) }]; },
     done: function (f, r) {
       var a = r && r.accepts && r.accepts[0];
-      return a ? "Price " + units(a.maxAmountRequired) + " RLUSD. Channel: " + units(a.extra.redeemed) + " of " + units(a.extra.channelCap) + " RLUSD used." : "";
+      if (!a) return r && r.error ? r.error : "No price quoted.";
+      var extra = a.extra || {};
+      return [
+        units(a.maxAmountRequired) + " RLUSD",
+        "Channel " + units(extra.redeemed) + " of " + units(extra.channelCap) + " RLUSD used"
+      ];
     }
   });
   AxcelTerm.mount({
     form: $("f-pay"), base: X402,
     spec: function (f) {
-      return [{ method: "POST", path: "/x402/agent", body: { resource: f.res.value }, note: "Reads the 402, pays only if the price fits the channel, then retries with the voucher" }];
+      return [{
+        method: "POST", path: "/x402/agent", body: { resource: f.res.value },
+        cmd: "axcel pay " + sh(f.res.value),
+        note: "Reads the 402, pays only if the price fits the channel, then retries with the voucher"
+      }];
     },
     done: function (f, r) {
-      if (!r || r.declined || !r.voucher) return "Refused: " + ((r && r.declined) || "payment declined") + ". Nothing was redeemed.";
+      if (!r || r.declined || !r.voucher) return ["Refused: " + ((r && r.declined) || "payment declined"), "Nothing was redeemed"];
       $("x-claim").value = r.voucher.claimId;
       $("f-settle").dispatchEvent(new Event("input"));
       var agent = $("b-agent").value;
       var merchant = $("b-merchant").value.trim();
       var item = ($("b-item").value || "").trim() || (r.resource && r.resource.title) || "Credit briefing";
-      var cents = Math.max(1, Math.round(parseFloat(r.rlusd || "0") * 100));
+      var payCents = Math.max(1, Math.round(parseFloat(r.rlusd || "0") * 100));
+      var paid = (r.rlusd ? r.rlusd + " RLUSD" : "paid") + (r.voucher.txHash ? " · " + short(r.voucher.txHash) : "");
       if (!userId || !agent || !merchant) {
-        return "Voucher redeemed and settled (" + short(r.voucher.txHash) + "). Pick an agent and a merchant under Make a purchase to anchor it on XRPL.";
+        return ["Paid " + paid, "Claim " + short(r.voucher.claimId), "Pick an agent and merchant to anchor on XRPL"];
       }
       return fetch(API + "/payments/agentic/demo", {
         method: "POST",
@@ -242,45 +305,86 @@
           agentId: agent,
           merchantId: merchant,
           item: { id: slug(item), title: item },
-          amountCents: cents,
+          amountCents: payCents,
           network: { claimId: r.voucher.claimId, redeemTx: r.voucher.txHash, channelId: r.voucher.channelId, rlusd: r.rlusd }
         })
       }).then(function (res) {
         return res.json().then(function (body) {
-          if (!res.ok) return "Voucher settled (" + short(r.voucher.txHash) + "). XRPL anchor failed: " + (body.error || ("HTTP " + res.status));
+          if (!res.ok) return ["Paid " + paid, "XRPL anchor failed: " + (body.error || ("HTTP " + res.status))];
           refresh();
-          return "Voucher settled and anchored on XRPL " + short(body.txHash) + ". Score " + (body.score == null ? "—" : Math.round(body.score)) + ".";
+          return [
+            "Paid " + paid,
+            "XRPL " + short(body.txHash) + " · score " + (body.score == null ? "—" : Math.round(body.score))
+          ];
         });
       }, function () {
-        return "Voucher settled (" + short(r.voucher.txHash) + "). The AXCEL service isn't running, so it isn't on the score yet.";
+        return ["Paid " + paid, "AXCEL isn't running, so it isn't on the score yet"];
       });
     }
   });
   AxcelTerm.mount({
     form: $("f-settle"), base: X402,
-    spec: function (f) { return [{ method: "POST", path: "/x402/settle", body: { claimId: f.claim.value.trim() } }]; },
-    done: function () { return "Settled. The receipt ties the claim, the payout and the channel together."; }
+    spec: function (f) {
+      var claim = f.claim.value.trim();
+      return [{ method: "POST", path: "/x402/settle", body: { claimId: claim }, cmd: "axcel settle " + sh(claim || "$CLAIM_ID") }];
+    },
+    done: function (f, r) {
+      var receipt = r && r.receipt;
+      return [
+        "Settled",
+        receipt && receipt.payoutTx ? "Payout " + short(receipt.payoutTx) : "",
+        receipt && receipt.claimId ? "Claim " + short(receipt.claimId) : ""
+      ];
+    }
   });
   AxcelTerm.mount({
     form: $("f-proof"), base: X402,
-    spec: function () { return [{ method: "POST", path: "/x402/proof", note: "Over-cap refusal, a paid voucher, then settlement with a receipt" }]; },
-    done: function () { return "Proof complete: control, payment and settlement."; }
+    spec: function () { return [{ method: "POST", path: "/x402/proof", cmd: "axcel proof", note: "Over-cap refusal, a paid voucher, then settlement with a receipt" }]; },
+    done: function (f, r) {
+      var cap = r && r.control && r.control.channel;
+      return [
+        r && r.control && r.control.overCapRejected ? "Over-cap refused" : "Control checked",
+        r && r.payment && r.payment.released ? "Briefing paid" : "Payment ran",
+        r && r.proof && r.proof.receipt ? "Settled with receipt" : "Proof complete",
+        cap ? "Channel " + cap.redeemed + " of " + cap.cap + " used" : ""
+      ];
+    }
   });
 
   // Network housekeeping
   AxcelTerm.mount({
     form: $("f-reconcile"), base: API,
-    spec: function () { return [{ method: "POST", path: "/payments/reconcile" }]; },
-    done: function (f, r) { return "Resumed " + ((r && r.resumed) || []).length + ", stranded " + ((r && r.stranded) || []).length + "."; },
+    spec: function () { return [{ method: "POST", path: "/payments/reconcile", cmd: "axcel reconcile" }]; },
+    done: function (f, r) {
+      var resumed = (r && r.resumed) || [];
+      var stranded = (r && r.stranded) || [];
+      return [
+        "Resumed " + resumed.length + " · stranded " + stranded.length,
+        resumed.length + stranded.length === 0 ? "Nothing was in flight." : ""
+      ];
+    },
     after: refresh
   });
   AxcelTerm.mount({
     form: $("f-netsettle"), base: API,
-    spec: function (f) { return [{ method: "POST", path: "/payments/network/settle", body: f.close.checked ? { close: true } : {} }]; },
-    done: function () { return "Channel settled."; }
+    spec: function (f) {
+      return [{
+        method: "POST", path: "/payments/network/settle", body: f.close.checked ? { close: true } : {},
+        cmd: "axcel settle-channel" + flags({ close: f.close.checked })
+      }];
+    },
+    done: function (f, r) {
+      if (!r || r.settled === false) return ["Nothing to settle"];
+      return [
+        "Channel settled",
+        r.payoutTx ? "Payout " + short(r.payoutTx) : (r.settlementTx ? "Tx " + short(r.settlementTx) : ""),
+        r.closeTx ? "Channel closed" : ""
+      ];
+    }
   });
 
   document.addEventListener("axcel:wallet", refresh);
   renderMerchants();
+  renderRun();
   refresh();
 })();
