@@ -175,7 +175,8 @@ h2.sec::before { content: ""; position: absolute; top: 0; left: 0; height: 6px; 
 .after { margin: 24px 0 0; }
 
 /* Tables over cards */
-.table-scroll { overflow-x: auto; max-width: 100%; }
+/* Rows rising in on scroll overhang the bottom for a moment; clip that instead of showing a vertical scrollbar. */
+.table-scroll { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
 table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 15px; }
 thead th { background: var(--tint); text-align: left; font-weight: 600; font-size: 14px; padding: 12px 16px; white-space: nowrap; }
 tbody td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
