@@ -66,7 +66,7 @@ export class LocalPaymentChannel implements PaymentChannel {
   private readonly wallet = new ethers.Wallet(LOCAL_KEY)
   private readonly channelId = ethers.id('bec-demo-channel')
   private redeemed = 0n
-  constructor(private readonly cap: bigint = 10n ** 18n) {}
+  constructor(private readonly cap: bigint = 20n * 10n ** 18n) {}
 
   async identity(): Promise<AttestedIdentity> {
     return { agentId: this.wallet.address, address: this.wallet.address, attested: false, source: 'local' }

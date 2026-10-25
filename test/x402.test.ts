@@ -40,7 +40,7 @@ describe('HTTP 402 paywall', () => {
     expect(proof.control.identity.source).toBe('local')
     expect(proof.control.identity.agentId).toMatch(/^0x/)
     expect(proof.control.fundedChannelCap).toBe(true)
-    expect(proof.control.channel.cap).toBe('1')
+    expect(proof.control.channel.cap).toBe('20')
     expect(proof.control.overCapRejected).toBe(true)
     expect(proof.control.overCap.redeemedUnchanged).toBe(true)
 
@@ -108,7 +108,7 @@ describe('HTTP 402 paywall', () => {
   })
 
   it('lets a separate agent read the 402, pay, and unlock the resource', async () => {
-    const channel = new LocalPaymentChannel()
+    const channel = new LocalPaymentChannel(10n ** 18n)
     const app = express()
     app.use(express.json())
     mountX402(app, new Paywall(channel))

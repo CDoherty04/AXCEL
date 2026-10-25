@@ -112,6 +112,36 @@
   </section>
 
   <section class="wrap">
+    <div class="split" id="merchants">
+      <div class="split-copy">
+        <h2 class="sec">Merchants</h2>
+        <p class="t-32 display">Who your agents can pay.</p>
+        <p class="small">A merchant only accepts payments from credentialed agent accounts.</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ merchants</span></div>
+          <form class="form term-body" id="f-merchant">
+            <div class="field-row">
+              <div class="field"><label for="m-name">Name</label><input id="m-name" name="name" required placeholder="Paperly"></div>
+              <div class="field"><label for="m-site">Website</label><input id="m-site" name="website" required placeholder="https://paperly.example"></div>
+            </div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Register merchant</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="table-scroll after">
+          <table>
+            <thead><tr><th>Merchant</th><th>ID</th><th>Account</th></tr></thead>
+            <tbody id="merchant-rows"><tr><td colspan="3" class="small">None registered from this browser yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
     <div class="split" id="run">
       <div class="split-copy">
         <h2 class="sec">Run an agent</h2>
@@ -148,6 +178,7 @@
               <label for="b-agent">Agent</label>
               <select id="b-agent" name="agent" required><option value="">Connect your wallet first</option></select>
             </div>
+            <div class="field"><label for="b-merchant">Merchant ID</label><input id="b-merchant" name="merchant" required list="merchant-ids" placeholder="m_…" spellcheck="false"><datalist id="merchant-ids"></datalist></div>
             <div class="field"><label for="b-amount">Amount ($)</label><input id="b-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="20"></div>
             <div class="field"><label for="b-item">Item</label><input id="b-item" name="item" required placeholder="Paper"></div>
             <pre class="term-cmd"></pre>
@@ -178,6 +209,59 @@
             <thead><tr><th>Alert</th><th>Agent</th><th>Transaction</th></tr></thead>
             <tbody id="alert-rows"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="split" id="x402">
+      <div class="split-copy">
+        <h2 class="sec">Pay per use</h2>
+        <p class="t-32 display">HTTP 402, paid by voucher.</p>
+        <p class="small">The agent reads the 402, pays only if the price fits its channel, and settlement releases RLUSD to the merchant. If an agent and a merchant are filled in above, the same voucher is anchored on XRPL and added to the score.</p>
+      </div>
+      <div class="split-body">
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ price</span></div>
+          <form class="form term-body" id="f-price">
+            <div class="field">
+              <label for="x-res">Resource</label>
+              <select id="x-res" name="res"><option value="briefing">briefing: 0.1 RLUSD</option><option value="archive">archive: 5 RLUSD</option></select>
+            </div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Ask the price</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ pay</span></div>
+          <form class="form term-body" id="f-pay">
+            <div class="field">
+              <label for="x-pay-res">Resource</label>
+              <select id="x-pay-res" name="res"><option value="briefing">briefing</option><option value="archive">archive</option></select>
+            </div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Pay</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ settle</span></div>
+          <form class="form term-body" id="f-settle">
+            <div class="field"><label for="x-claim">Claim ID (filled in after you pay)</label><input id="x-claim" name="claim" required placeholder="0x…" spellcheck="false"></div>
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Settle and get receipt</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ proof</span></div>
+          <form class="form term-body" id="f-proof">
+            <pre class="term-cmd"></pre>
+            <p><button class="btn primary" type="submit">Run the full proof</button></p>
+            <p class="result" aria-live="polite"></p>
+          </form>
         </div>
       </div>
     </div>
@@ -264,7 +348,7 @@
 </footer>
 
 <script src="term.js?v=8"></script>
-<script src="agents.js?v=10"></script>
+<script src="agents.js?v=14"></script>
 <script src="nav.js"></script>
 <script src="wallet.js"></script>
 <script src="reveal.js"></script>
