@@ -91,8 +91,9 @@ export const paymentsRoutes: RouteFactory = (holder) => [
         userId: z.string().optional(),
         label: z.string().min(1),
         limitCents: z.number().int().positive(),
+        wallet: z.string().optional(),
       }));
-      return svc.addNamedAgent(b.userId, b.label, b.limitCents);
+      return svc.addNamedAgent(b.userId, b.label, b.limitCents, b.wallet);
     }, holder, 201),
   },
   {

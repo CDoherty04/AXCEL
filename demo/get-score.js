@@ -20,6 +20,7 @@
   var uid = function () { return userId || "$USER_ID"; };
 
   function showProfile() {
+    if (!$("profile-line")) return;
     $("profile-line").hidden = !userId;
     $("profile-id").textContent = userId || "";
   }
@@ -77,11 +78,6 @@
   // ---- what each form sends ----
   var cents = function (v) { return Math.round(parseFloat(v || 0) * 100); };
   var specs = {
-    "f-agent": function (f) {
-      var body = { label: f.label.value.trim(), limitCents: cents(f.limit.value) };
-      if (userId) body.userId = userId;
-      return [{ method: "POST", path: "/agents/simple", body: body }];
-    },
     "f-repay": function (f) {
       var body = { userId: uid() };
       if (f.full.checked) body.full = true;
@@ -91,16 +87,6 @@
   };
 
   var done = {
-    "f-agent": function (f, r) {
-      if (r && r.userId) {
-        userId = r.userId;
-        save("axcel.userId", userId);
-        var w = wallet();
-        if (w) remember(w.address, userId);
-        showProfile();
-      }
-      return "Agent " + (r.label || f.label.value.trim()) + " added.";
-    },
     "f-repay": function (f) { return f.full.checked ? "Paid off. Nice work." : "Payment made."; }
   };
 
@@ -112,7 +98,7 @@
       e.preventDefault();
       var btn = form.querySelector("button[type=submit]");
       out(form).textContent = "";
-      if (id === "f-repay" && !userId) { print(form, "error: add an agent first.", "t-err"); return; }
+      if (id === "f-repay" && !userId) { print(form, "error: add an agent on the agents dashboard first.", "t-err"); return; }
       var label = btn.textContent;
       btn.disabled = true;
       btn.textContent = "Waiting…";
@@ -147,7 +133,7 @@
     });
   });
 
-  $("reset").addEventListener("click", function () {
+  if ($("reset")) $("reset").addEventListener("click", function () {
     var w = wallet();
     if (w) remember(w.address, null);
     userId = null; save("axcel.userId", null); showProfile();

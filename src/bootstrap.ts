@@ -67,6 +67,8 @@ export async function createService(opts: {
   service = new CreditService({
     ledger, store, vi, registry, authorizer,
     kyc: new MockKycProvider(),
+    // Agents spend from the user's borrowed balance; draw it on demand so no separate borrow step is needed.
+    autoBorrowChunk: 50,
     mainnetHistory: opts.mainnetHistory ?? (process.env.QUICKNODE_XRP_RPC_URL ? new QuickNodeHistoryReader() : new XrplHistoryReader('mainnet')),
     resolver: new LedgerMerchantResolver(ledger, fetchDoc),
   })

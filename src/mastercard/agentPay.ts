@@ -43,20 +43,20 @@ export interface NetworkAuthorizer {
 }
 
 export class MockAgentRegistry implements AgentRegistry {
-  private readonly agents = new Map<string, boolean>()
+  // Only revocations are remembered: agents persist in the store across API restarts, but this registry does not,
+  // so an unknown ID is a previously registered agent, not an unregistered one.
+  private readonly revoked = new Set<string>()
 
   async register(): Promise<{ mastercardAgentId: string }> {
-    const id = `agt_${randomUUID().replace(/-/g, '').slice(0, 20)}`
-    this.agents.set(id, true)
-    return { mastercardAgentId: id }
+    return { mastercardAgentId: `agt_${randomUUID().replace(/-/g, '').slice(0, 20)}` }
   }
 
   async isRegistered(id: string): Promise<boolean> {
-    return this.agents.get(id) === true
+    return id.length > 0 && !this.revoked.has(id)
   }
 
   async revoke(id: string): Promise<void> {
-    this.agents.set(id, false)
+    this.revoked.add(id)
   }
 }
 

@@ -14,6 +14,11 @@
     var w = load("axcel.wallet");
     return w ? (load("axcel.users") || {})[w.address] || null : null;
   }
+  // The cold-start preview from Get your score, for the connected wallet only.
+  function preview() {
+    var w = load("axcel.wallet"), pv = load("axcel.preview");
+    return w && pv && pv.account && pv.account.toLowerCase() === w.address.toLowerCase() ? pv : null;
+  }
   var userId = currentUser();
   var uid = function () { return userId || "$USER_ID"; };
   var needUser = function () { return userId ? null : "no USER_ID. Connect your wallet and link it on Get your score first."; };
@@ -37,8 +42,13 @@
     var budget = active.reduce(function (s, a) { return s + a.budgetUsd; }, 0);
     $("st-agents").textContent = p ? active.length : "—";
     $("st-spent").textContent = p ? money(spent) + " / " + money(budget) : "—";
-    $("st-credit").textContent = p && p.credit ? money(p.credit.available) : "—";
-    $("st-score").textContent = p && p.score ? Math.round(p.score.value) + (p.score.tier ? " · " + p.score.tier : "") : "—";
+    // Without a profile yet, show the score previewed on Get your score (kept in this browser only).
+    var pre = preview();
+    $("st-credit").textContent = p && p.credit && (p.credit.creditLine || !pre) ? money(p.credit.available) : pre && pre.creditLine != null ? money(pre.creditLine) : "—";
+    // The live score only replaces the previewed one once there is activity to change it.
+    var hasActivity = p && ((p.purchases || []).length || (p.loans || []).length);
+    var sc = p && p.score && (hasActivity || !pre) ? { value: p.score.value, tier: p.score.tier } : pre ? { value: pre.score, tier: pre.tier } : null;
+    $("st-score").textContent = sc ? Math.round(sc.value) + (sc.tier ? " · " + sc.tier : "") : "—";
 
     $("fleet-rows").innerHTML = agents.length ? agents.map(function (a) {
       var live = a.status === "active";
@@ -121,7 +131,7 @@
     spec: function (f) {
       var max = cents(f.max.value), budget = cents(f.budget.value), limit = budget || max || 100000;
       var label = f.label.value.trim();
-      if (!userId) return [{ method: "POST", path: "/agents/simple", body: { label: label, limitCents: limit }, note: "First agent: creates your profile" }];
+      if (!userId) return [{ method: "POST", path: "/agents/simple", body: { label: label, limitCents: limit, wallet: (load("axcel.wallet") || {}).address }, note: "First agent: creates your profile" }];
       return [{ method: "POST", path: "/users/" + userId + "/agents", body: {
         label: label, mode: f.mode.value, maxCents: max || limit, budgetCents: budget || limit, merchantIds: [], items: []
       } }];

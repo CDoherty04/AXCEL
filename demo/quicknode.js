@@ -1,5 +1,5 @@
 /* Get your score, Part 1: connect a wallet, read its Mainnet history through QuickNode, and score it with the
-   credit-layer engine. Continue then opens Part 2 (XRPL and Mastercard). */
+   credit-layer engine. */
 (function () {
   var API = (window.AXCEL_API || "http://127.0.0.1:3000") + "/api/v1";
   var $ = function (id) { return document.getElementById(id); };
@@ -83,7 +83,7 @@
     $("card-score").textContent = r && r.score != null ? Math.round(r.score) : "—";
     $("card-tier").textContent = r && r.tier ? "Tier " + r.tier : "No tier yet";
     $("card-line").textContent = "$" + (r ? r.creditLine || 0 : 0).toLocaleString();
-    $("card-basis").textContent = r ? "from " + r.scoredPayments + " payment" + (r.scoredPayments === 1 ? "" : "s") : "";
+    $("card-basis").textContent = r && r.scoredPayments != null ? "from " + r.scoredPayments + " payment" + (r.scoredPayments === 1 ? "" : "s") : "";
     $("card-reasons").innerHTML = (r && r.reasons || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
     $("card-note").textContent = note || "";
     $("card-note").hidden = !note;
@@ -108,25 +108,24 @@
     },
     done: function (f, r) {
       card(r, "Preview from your Mainnet history. Linking your account and verifying your identity in Part 2 issues the tier on-ledger.");
-      save("axcel.preview", { account: account(), score: r.score, tier: r.tier });
+      save("axcel.preview", { account: account(), score: r.score, tier: r.tier, creditLine: r.creditLine, scoredPayments: r.scoredPayments, reasons: r.reasons });
       return "Score " + Math.round(r.score) + ", Tier " + r.tier + ".";
     }
   });
 
-  // ---- continue to Part 2 ----
-  function openPart2(scroll) {
-    $("part2").hidden = false;
-    save("axcel.continued", true);
-    if (scroll) $("part2").scrollIntoView({ behavior: "smooth" });
-  }
-  $("continue").addEventListener("click", function () { openPart2(true); });
-  if (load("axcel.continued") || location.hash && location.hash !== "#top" && $("part2").querySelector(location.hash)) openPart2(false);
-
   document.addEventListener("axcel:wallet", function (e) {
     showWallet(e.detail);
-    if ($("history-out").hidden) card(null, e.detail ? "Read your history to calculate your score." : "Connect your wallet to see your score.");
+    var sv = load("axcel.preview");
+    if (e.detail && sv && sv.account && sv.account.toLowerCase() === e.detail.address.toLowerCase()) card(sv, "Preview from your Mainnet history. Read your history again to refresh it.");
+    else if ($("history-out").hidden) card(null, e.detail ? "Read your history to calculate your score." : "Connect your wallet to see your score.");
   });
   var w0 = load("axcel.wallet");
   showWallet(w0);
-  card(null, w0 ? "Read your history to calculate your score." : "Connect your wallet to see your score.");
+  // Bring back the last score for this wallet, so leaving the page and returning keeps it.
+  var saved = load("axcel.preview");
+  if (w0 && saved && saved.account && saved.account.toLowerCase() === w0.address.toLowerCase()) {
+    card(saved, "Preview from your Mainnet history. Read your history again to refresh it.");
+  } else {
+    card(null, w0 ? "Read your history to calculate your score." : "Connect your wallet to see your score.");
+  }
 })();

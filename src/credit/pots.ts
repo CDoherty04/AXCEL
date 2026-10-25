@@ -36,8 +36,10 @@ export async function createPot(
   infra: Infra,
   service: Wallet,
   agentAddress: string,
+  /** A faucet-funded wallet to use as the pot, when the caller funded it in parallel. */
+  funded?: Wallet,
 ): Promise<{ wallet: Wallet; credentialId: string }> {
-  const pot = await ledger.fund()
+  const pot = funded ?? (await ledger.fund())
   await ledger.submit({ TransactionType: 'TrustSet', Account: pot.address, LimitAmount: tokenAmount(infra, '100000000') }, pot)
   await issuePayerCredential(ledger, service, pot)
   await ledger.submit(

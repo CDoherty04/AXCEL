@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112..125,700..900&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400..600&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="logos/axcel-mark.png">
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
 
@@ -141,46 +141,13 @@
         <ul class="reasons" id="card-reasons"></ul>
         <p class="small" id="card-note">Connect your wallet to see your score.</p>
         <div class="btn-row">
-          <button class="btn primary" id="continue" type="button">Continue to XRPL and Mastercard</button>
+          <a class="btn primary" id="continue" href="agents.html">Continue to agents dashboard</a>
         </div>
       </div>
     </div>
   </section>
 
-  <div class="part" id="part2" hidden>
-
-  <section class="wrap">
-    <div class="part-head">
-      <p class="part-num">Part 2</p>
-      <h2 class="display t-32">Agents</h2>
-      <p class="part-by"><span class="small">On</span><img src="logos/xrpl.svg" alt="XRPL"><img class="mc" src="logos/mastercard.svg" alt="Mastercard"></p>
-    </div>
-    <p class="small after" id="profile-line" hidden>Profile <span class="mono" id="profile-id"></span> · <button class="linkish" type="button" id="reset">Start over</button></p>
-  </section>
-
-  <section class="wrap">
-    <div class="split" id="agents">
-      <div class="split-copy">
-        <h2 class="sec">1. Add an agent</h2>
-        <p class="t-32 display">A name and a limit.</p>
-        <p class="small">It can spend up to that amount from your line.</p>
-      </div>
-      <div class="split-body">
-        <div class="term" id="f-agent-term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ agents</span></div>
-          <form class="form term-body" id="f-agent">
-          <div class="field-row">
-            <div class="field"><label for="a-label">Agent name</label><input id="a-label" name="label" required placeholder="Shopper"></div>
-            <div class="field"><label for="a-limit">Limit ($)</label><input id="a-limit" name="limit" type="number" min="1" step="1" required placeholder="50"></div>
-          </div>
-          <pre class="term-cmd"></pre>
-          <p><button class="btn primary" type="submit">Add agent</button></p>
-          <p class="result" aria-live="polite"></p>
-        </form>
-        </div>
-      </div>
-    </div>
-  </section>
+  <div class="part" id="part2">
 
   <section class="wrap">
     <div class="split" id="repay">
@@ -234,9 +201,9 @@
   </div>
 </footer>
 
-<script src="term.js?v=5"></script>
-<script src="get-score.js?v=5"></script>
-<script src="quicknode.js?v=4"></script>
+<script src="term.js?v=7"></script>
+<script src="get-score.js?v=7"></script>
+<script src="quicknode.js?v=7"></script>
 <script src="nav.js"></script>
 <script src="wallet.js"></script>
 <script src="reveal.js"></script>

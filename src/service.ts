@@ -155,8 +155,7 @@ export class CreditService {
   /** Create the user's Devnet account, VI keys, Mastercard L1 credential and an XRPL DID. */
   async createUser(id: string = `u_${randomUUID().slice(0, 8)}`) {
     if (this.store.state.users[id]) throw new HttpError(409, `user ${id} exists`)
-    const wallet = await this.ledger.fund()
-    const viUserKey = await this.d.vi.keygen()
+    const [wallet, viUserKey] = await Promise.all([this.ledger.fund(), this.d.vi.keygen()])
     const did = didFor(wallet.address)
     const l1 = await this.d.vi.issueL1({ issuer: this.infra.viIssuer, userPublicJwk: viUserKey.public_jwk, subject: did })
     const user: UserRecord = {
@@ -342,7 +341,7 @@ export class CreditService {
   // ------------------------------------------------------------------ agents
 
   /** Demo: name and a spending limit. Creates the profile, identity credential and a default merchant when needed. */
-  async addNamedAgent(userId: string | undefined, label: string, limitCents: number) {
+  async addNamedAgent(userId: string | undefined, label: string, limitCents: number, wallet?: string) {
     let id = userId
     if (!id || !this.store.state.users[id]) id = (await this.createUser(id)).id
     const u = this.store.user(id)
@@ -354,6 +353,7 @@ export class CreditService {
       const created = await this.registerMerchant({ name: 'Agent Pay', website: 'https://hackathon.ap4m.build' })
       merchant = this.store.state.merchants[created.id]
     }
+    if (wallet && !u.events.length) await this.seedFromWallet(u, wallet)
     const agent = await this.addAgent(id, {
       label,
       mode: 'autonomous',
@@ -363,6 +363,23 @@ export class CreditService {
       items: [{ id: 'purchase', title: 'Purchase' }],
     })
     return { userId: id, ...agent }
+  }
+
+  /**
+   * Score a connected wallet's own history (the same QuickNode read as the score preview) and put the matching
+   * CreditTier credential on the user's account, so its agents can spend. Best effort: with no history the user
+   * simply starts at the bottom tier.
+   */
+  private async seedFromWallet(u: UserRecord, wallet: string): Promise<void> {
+    try {
+      const h = await this.d.mainnetHistory.read(wallet)
+      u.events.push(...h.events)
+      if (h.firstActivityAt) u.accountCreatedAt = Math.min(u.accountCreatedAt, h.firstActivityAt)
+      this.store.save()
+      await this.syncTier(u.id)
+    } catch (e) {
+      console.error(`[credit-layer] could not score ${wallet}:`, e instanceof Error ? e.message : e)
+    }
   }
 
   async addAgent(userId: string, input: AgentOptions): Promise<PublicAgent> {
@@ -381,8 +398,8 @@ export class CreditService {
       items: input.items?.length ? input.items : [{ id: 'purchase', title: 'Purchase' }],
     }
     const merchants = opts.merchantIds.map((id) => this.vim(this.merchant(id)))
-    const wallet = await this.ledger.fund()
-    const viKey = await this.d.vi.keygen()
+    // The two faucet calls dominate the wait, so fund the agent and its spending account together.
+    const [wallet, potWallet, viKey] = await Promise.all([this.ledger.fund(), this.ledger.fund(), this.d.vi.keygen()])
     const id = `ag_${randomUUID().slice(0, 8)}`
     const did = didFor(wallet.address)
     const { mastercardAgentId } = await this.d.registry.register({
@@ -390,7 +407,7 @@ export class CreditService {
     })
 
     // The agent pays from its own spending account, never from the user's main account.
-    const pot = await createPot(this.ledger, this.infra, this.service, wallet.address)
+    const pot = await createPot(this.ledger, this.infra, this.service, wallet.address, potWallet)
     const agent: AgentRecord = {
       id, label: opts.label, account: wallet.address, seed: wallet.seed!, did, kid: id, viKey, mastercardAgentId,
       pot: { account: pot.wallet.address, seed: pot.wallet.seed! },
@@ -505,6 +522,11 @@ export class CreditService {
       if (agent.spentCents + this.pendingCents(u, agent.id) + amountCents > agent.budgetCents) this.refuse(u, agent, 'agent budget exceeded')
 
       let cs = await this.creditState(u.id)
+      if (!cs.tier) {
+        // The credential may have expired or never been issued; issue it from the current score and look again.
+        await this.syncTier(u.id).catch(() => undefined)
+        cs = await this.creditState(u.id)
+      }
       if (!cs.tier) throw new HttpError(403, 'no valid CreditTier credential')
       const amount = amountCents / 100
       const inFlight = this.pendingCents(u) / 100

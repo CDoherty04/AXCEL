@@ -83,6 +83,7 @@
       reqs.reduce(function (p, req) {
         return p.then(function () {
           print(form, "$ curl -X " + req.method + " " + opts.base + req.path, "t-dim");
+          if (req.method !== "GET" && /agents|merchants|repay|run/.test(req.path)) print(form, "# waiting on XRPL validation; this can take up to a minute", "t-dim");
           print(form, "# waiting…", "t-wait");
           return call(opts.base, form, req).then(function (r) { last = r; });
         });
