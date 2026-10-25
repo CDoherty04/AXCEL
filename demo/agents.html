@@ -82,7 +82,6 @@
     <div class="split" id="add">
       <div class="split-copy">
         <h2 class="sec">Add an agent</h2>
-        <p class="t-32 display">Set its mandate once.</p>
         <p class="small">Needs your identity credential (step 2 on Get your score). Leave the limits blank for no cap beyond your credit line.</p>
       </div>
       <div class="split-body">
@@ -108,37 +107,6 @@
             <p class="result" aria-live="polite"></p>
           </form>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap">
-    <div class="split" id="merchants">
-      <div class="split-copy">
-        <h2 class="sec">Merchants</h2>
-        <p class="t-32 display">Who your agents can pay.</p>
-        <p class="small">A merchant only accepts payments from credentialed agent accounts.</p>
-      </div>
-      <div class="split-body">
-        <div class="term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ merchants</span></div>
-          <form class="form term-body" id="f-merchant">
-            <div class="field-row">
-              <div class="field"><label for="m-name">Name</label><input id="m-name" name="name" required placeholder="Paperly"></div>
-              <div class="field"><label for="m-site">Website</label><input id="m-site" name="website" required placeholder="https://paperly.example"></div>
-            </div>
-            <pre class="term-cmd"></pre>
-            <p><button class="btn primary" type="submit">Register merchant</button></p>
-            <p class="result" aria-live="polite"></p>
-          </form>
-        </div>
-        <div class="table-scroll after">
-          <table>
-            <thead><tr><th>Merchant</th><th>ID</th><th>Account</th></tr></thead>
-            <tbody id="merchant-rows"><tr><td colspan="3" class="small">None registered from this browser yet.</td></tr></tbody>
-          </table>
-        </div>
-        <datalist id="merchant-ids"></datalist>
       </div>
     </div>
   </section>
@@ -176,6 +144,7 @@
         <div class="term">
           <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ buy</span></div>
           <form class="form term-body" id="f-buy">
+            <datalist id="merchant-ids"></datalist>
             <div class="field">
               <label for="b-agent">Agent</label>
               <select id="b-agent" name="agent" required><option value="">Connect your wallet first</option></select>
@@ -219,59 +188,6 @@
   </section>
 
   <section class="wrap">
-    <div class="split" id="x402">
-      <div class="split-copy">
-        <h2 class="sec">Pay per use</h2>
-        <p class="t-32 display">HTTP 402, paid by voucher.</p>
-        <p class="small">The agent reads the 402, pays only if the price fits its channel, and settlement releases RLUSD to the merchant. If an agent and a merchant are filled in above, the same voucher is anchored on XRPL and added to the score.</p>
-      </div>
-      <div class="split-body">
-        <div class="term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ price</span></div>
-          <form class="form term-body" id="f-price">
-            <div class="field">
-              <label for="x-res">Resource</label>
-              <select id="x-res" name="res"><option value="briefing">briefing: 0.1 RLUSD</option><option value="archive">archive: 5 RLUSD</option></select>
-            </div>
-            <pre class="term-cmd"></pre>
-            <p><button class="btn primary" type="submit">Ask the price</button></p>
-            <p class="result" aria-live="polite"></p>
-          </form>
-        </div>
-        <div class="term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ pay</span></div>
-          <form class="form term-body" id="f-pay">
-            <div class="field">
-              <label for="x-pay-res">Resource</label>
-              <select id="x-pay-res" name="res"><option value="briefing">briefing</option><option value="archive">archive</option></select>
-            </div>
-            <pre class="term-cmd"></pre>
-            <p><button class="btn primary" type="submit">Pay</button></p>
-            <p class="result" aria-live="polite"></p>
-          </form>
-        </div>
-        <div class="term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ settle</span></div>
-          <form class="form term-body" id="f-settle">
-            <div class="field"><label for="x-claim">Claim ID (filled in after you pay)</label><input id="x-claim" name="claim" required placeholder="0x…" spellcheck="false"></div>
-            <pre class="term-cmd"></pre>
-            <p><button class="btn primary" type="submit">Settle and get receipt</button></p>
-            <p class="result" aria-live="polite"></p>
-          </form>
-        </div>
-        <div class="term">
-          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ proof</span></div>
-          <form class="form term-body" id="f-proof">
-            <pre class="term-cmd"></pre>
-            <p><button class="btn primary" type="submit">Run the full proof</button></p>
-            <p class="result" aria-live="polite"></p>
-          </form>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap">
     <div class="split" id="network">
       <div class="split-copy">
         <h2 class="sec">Network</h2>
@@ -295,6 +211,29 @@
             <p><button class="btn primary" type="submit">Settle channel</button></p>
             <p class="result" aria-live="polite"></p>
           </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="wrap">
+    <div class="split" id="repay">
+      <div class="split-copy">
+        <h2 class="sec">Repay</h2>
+        <p class="t-32 display">Pay on time. Move up.</p>
+        <p class="small">Early payoff counts as on time.</p>
+      </div>
+      <div class="split-body">
+        <div class="term" id="f-repay-term">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>axcel ~ repay</span></div>
+          <form class="form term-body" id="f-repay">
+          <div class="field"><label for="repay-amt">Amount ($)</label><input id="repay-amt" name="amount" type="number" min="0.01" step="0.01" placeholder="Next installment"></div>
+          <label class="check"><input type="checkbox" name="full"> Pay off the whole balance</label>
+          <pre class="term-cmd"></pre>
+          <p><button class="btn primary" type="submit">Repay</button></p>
+          <p class="result" aria-live="polite"></p>
+        </form>
         </div>
       </div>
     </div>
