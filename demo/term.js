@@ -103,7 +103,10 @@
             if (opts.after) opts.after();
           });
         })
-        .catch(function (err) { print(form, "error: " + err.message, "t-err"); })
+        .catch(function (err) {
+          var starting = /service is starting/i.test(err.message);
+          print(form, (starting ? "" : "error: ") + err.message, starting ? "t-dim" : "t-err");
+        })
         .then(function () {
           clearWait(form);
           btn.disabled = false;

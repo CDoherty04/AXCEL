@@ -247,7 +247,7 @@ Run cold start on Mainnet through QuickNode and everything after it on Devnet. T
 
 ## Build status (code in this repo)
 
-TypeScript service in `src/`, Python bridge to the pinned VI reference in `vi_bridge/` (reference cloned to `vendor/verifiable-intent` at commit `356c296`, v0.1). Everything below runs on Devnet. `npm run bootstrap` creates the lending infrastructure once (about 200 s because of the vault subscription window), `npm run demo` runs the full demo script, `npm test` runs the unit tests, `npm run api` starts the API. Python setup: `python -m venv .venv` then `.venv/Scripts/python -m pip install cryptography`.
+TypeScript service in `src/`, Python bridge to the pinned VI reference in `vi_bridge/` (reference cloned to `vendor/verifiable-intent` at commit `356c296`, v0.1). Everything below runs on Devnet. `npm run bootstrap` creates the lending infrastructure once (vault subscription is overlapped with broker setup), `npm run demo` runs the full demo script, `npm test` runs the unit tests, `npm run api` starts the API. Python setup: `python -m venv .venv` then `.venv/Scripts/python -m pip install cryptography`.
 
 | Area | File | What it does |
 | --- | --- | --- |

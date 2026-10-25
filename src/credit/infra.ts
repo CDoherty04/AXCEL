@@ -1,7 +1,7 @@
 import { Wallet } from 'xrpl'
 import { credentialTypes, hex, TIER_ORDER, type Tier } from '../config.js'
 import type { Infra, Store } from '../store/state.js'
-import { Ledger, createdNodes, nowUnix, toRippleTime } from '../xrpl/client.js'
+import { Ledger, createdNodes, toRippleTime } from '../xrpl/client.js'
 import { ViBridge } from '../vi/bridge.js'
 
 /** Currency code for the Devnet test dollar that stands in for RLUSD (40-char hex form of "TUSD"). */
@@ -9,8 +9,13 @@ export const TEST_DOLLAR = '5455534400000000000000000000000000000000'
 
 export const VAULT_LIQUIDITY = '20000'
 export const BROKER_COVER = '1000'
-/** Closed-ended vaults need a subscription window of at least 180s before lending can start. */
-export const SUBSCRIPTION_WINDOW_SECONDS = 200
+/**
+ * Seconds after current ledger close for SubscriptionDate.
+ * XRPL rejects 0 (`tecEXPIRED`: date must be strictly in the future) and VaultDeposit must land
+ * while still in Subscription. Broker setup after the deposit usually outlasts this, so lending
+ * is ready as soon as bootstrap finishes.
+ */
+export const SUBSCRIPTION_WINDOW_SECONDS = 10
 export const REDEMPTION_AFTER_SECONDS = 180 * 86_400
 
 export const issuerWallet = (infra: Infra): Wallet => Wallet.fromSeed(infra.issuerSeed)
@@ -58,7 +63,7 @@ export async function bootstrapInfra(ledger: Ledger, store: Store, vi: ViBridge)
     domains[tier] = createdNodes(res, 'PermissionedDomain')[0]!.LedgerIndex as string
   }
 
-  const subscription = nowUnix() + SUBSCRIPTION_WINDOW_SECONDS
+  const subscription = (await ledger.ledgerTime()) + SUBSCRIPTION_WINDOW_SECONDS
   const vaultRes = await ledger.submit(
     {
       TransactionType: 'VaultCreate',
@@ -119,8 +124,8 @@ export async function bootstrapInfra(ledger: Ledger, store: Store, vi: ViBridge)
 export async function waitForLending(ledger: Ledger, infra: Infra, log: (m: string) => void = () => {}): Promise<void> {
   for (;;) {
     const t = await ledger.ledgerTime()
-    if (t > infra.vaultSubscriptionDate + 5) return
+    if (t > infra.vaultSubscriptionDate) return
     log(`vault subscription window closes in ${Math.ceil(infra.vaultSubscriptionDate - t)}s`)
-    await new Promise((r) => setTimeout(r, 10_000))
+    await new Promise((r) => setTimeout(r, 1_000))
   }
 }

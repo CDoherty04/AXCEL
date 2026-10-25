@@ -43,14 +43,25 @@ export function chainHash(c: ViChain): string {
     .toUpperCase()
 }
 
+function resolvePython(explicit?: string): string {
+  if (explicit) return explicit
+  if (process.env.VI_PYTHON) return process.env.VI_PYTHON
+  const venvDir = process.platform === 'win32' ? join(root, '.venv', 'Scripts') : join(root, '.venv', 'bin')
+  for (const name of ['python', 'python3', 'python.exe']) {
+    const candidate = join(venvDir, name)
+    if (existsSync(candidate)) return candidate
+  }
+  // macOS and many Linux installs ship `python3` only.
+  return process.platform === 'win32' ? 'python' : 'python3'
+}
+
 /** Calls the Python bridge in vi_bridge/ which wraps the pinned verifiable-intent reference implementation. */
 export class ViBridge {
   private readonly python: string
   private readonly script = join(root, 'vi_bridge', 'bridge.py')
 
   constructor(python?: string) {
-    const venv = process.platform === 'win32' ? join(root, '.venv', 'Scripts', 'python.exe') : join(root, '.venv', 'bin', 'python')
-    this.python = python ?? process.env.VI_PYTHON ?? (existsSync(venv) ? venv : 'python')
+    this.python = resolvePython(python)
   }
 
   private call<T>(req: Record<string, unknown>): Promise<T> {
@@ -60,7 +71,12 @@ export class ViBridge {
       let err = ''
       p.stdout.on('data', (d) => (out += d))
       p.stderr.on('data', (d) => (err += d))
-      p.on('error', reject)
+      p.on('error', (e) => {
+        const extra = (e as NodeJS.ErrnoException).code === 'ENOENT'
+          ? ` Python not found (${this.python}). Create .venv with: python3 -m venv .venv && .venv/bin/pip install cryptography`
+          : ''
+        reject(new Error(`${e.message}.${extra}`))
+      })
       p.on('close', () => {
         try {
           const res = JSON.parse(out) as { ok: boolean; error?: string } & T

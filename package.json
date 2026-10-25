@@ -15,7 +15,7 @@
     "x402": "tsx src/api/x402Server.ts",
     "x402-agent": "tsx scripts/x402-agent.ts",
     "bootstrap": "tsx scripts/bootstrap.ts",
-    "vi:smoke": ".venv/Scripts/python vi_bridge/smoke.py",
+    "vi:smoke": "python3 vi_bridge/smoke.py",
     "resilience": "tsx scripts/resilience.ts"
   },
   "dependencies": {
@@ -38,5 +38,5 @@
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   },
-  "description": "AXCEL: agentic credit layer on XRPL + Mastercard Agent Pay"
+  "description": "Credit for trading agents tied to a user. Mastercard Agent Pay for Machines (AP4M), QuickNode Mainnet history, XRPL lending."
 }

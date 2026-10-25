@@ -4,5 +4,6 @@ dist/
 .env.local
 .venv/
 .data/
+.vercel/
 __pycache__/
 *.pyc

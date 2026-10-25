@@ -15,6 +15,7 @@ const PREFERRED_PORT = 3000;
 const MAX_PORT = PREFERRED_PORT + 9;
 
 // The credit-layer service bootstraps Devnet in the background; its routes answer 503 until it is ready.
+// Credit-layer routes 503 until Devnet bootstrap finishes (faucet, vault, broker).
 let creditLayer: CreditService | null = null;
 let creditLayerStatus = "starting";
 const holder = {
@@ -28,7 +29,13 @@ const RECONCILE_EVERY_MS = 60_000;
 
 async function startCreditLayer(): Promise<void> {
   try {
-    const wiring = await createService({ log: (m) => console.log(`[credit-layer] ${m}`) });
+    const wiring = await createService({
+      log: (m) => {
+        console.log(`[credit-layer] ${m}`);
+        const wait = /vault subscription window closes in (\d+)s/.exec(m);
+        if (wait) creditLayerStatus = `starting (Devnet vault opens in ${wait[1]}s)`;
+      },
+    });
     creditLayer = wiring.service;
     creditLayerStatus = "ready";
     await new EventFeed(wiring.service).start();
