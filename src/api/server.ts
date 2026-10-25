@@ -76,8 +76,9 @@ function logListening(server: Server): void {
   }
   const base = `http://${addr.address}:${addr.port}`;
   console.log(`axcel-api listening on ${base}`);
-  console.log(`  GET ${base}/api/v1`);
-  console.log(`  GET ${base}/api/v1/credit-history/:account?limit=50`);
+  console.log(`  axcel catalog`);
+  console.log(`  axcel history <account>`);
+  console.log(`  axcel score <account>`);
 }
 
 let port = PREFERRED_PORT;

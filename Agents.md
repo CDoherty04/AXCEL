@@ -56,18 +56,20 @@ Downstream (Caleb KYA/credit, Anthony frontend): prefer **`fetchCreditHistory`**
 ## CLI
 
 ```bash
-npm run qn-backlog -- rAddress…
-npm run qn-backlog -- rAddress… --json --max 1000
+npm run axcel -- history rAddress…
+npm run axcel -- history rAddress… --json --limit 1000
+npm run axcel -- score rAddress…
+npm run axcel -- catalog
 ```
 
-Address is **required** (no default).
+Address is **required** (no default). `npm run qn-backlog` still aliases `axcel history`.
 
 ## REST API (`src/api/`)
 
 ```bash
 npm run api
-curl -s "http://127.0.0.1:3000/api/v1/credit-history/rAddress…?limit=50"
-curl -s http://127.0.0.1:3000/api/v1   # route catalog
+npm run axcel -- history rAddress… --limit 50
+npm run axcel -- catalog
 ```
 
 Template layout for other owners:

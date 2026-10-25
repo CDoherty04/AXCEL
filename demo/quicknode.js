@@ -37,7 +37,10 @@
   var MAX_ROWS = 5;
   var historyTerm = AxcelTerm.mount({
     form: $("f-history"), base: API,
-    spec: function () { return [{ method: "GET", path: "/credit-history/" + (account() || "$ADDRESS"), note: "Full history. The table shows the latest 5." }]; },
+    spec: function () {
+      var addr = account() || "$ADDRESS";
+      return [{ method: "GET", path: "/credit-history/" + addr, cmd: "axcel history " + AxcelTerm.sh(addr), note: "Full history. The table shows the latest 5." }];
+    },
     check: function () { return account() ? null : "enter an address or connect your wallet."; },
     busy: function (f, on) {
       $("history-out").hidden = false;
@@ -74,7 +77,12 @@
       }).join("") : '<tr><td colspan="6" class="small">No transactions on this account.</td></tr>';
       $("history-more").textContent = txs.length > MAX_ROWS ? "Showing the latest " + MAX_ROWS + " of " + txs.length + ". The score uses all " + txs.length + "." : "";
       $("history-out").hidden = false;
-      return (s.transactionCount || 0) + " transactions read. Calculate the score below.";
+      var first = s.firstActivityAt ? "First activity " + new Date(s.firstActivityAt).toLocaleDateString([], { month: "short", year: "numeric" }) : "No prior activity";
+      return [
+        (s.transactionCount || 0).toLocaleString() + " transactions · " + (s.paymentsSent || 0).toLocaleString() + " sent · " + (s.uniqueCounterparties || 0).toLocaleString() + " counterparties",
+        first,
+        "Calculate the score below."
+      ];
     }
   });
 
@@ -92,7 +100,8 @@
   var preview = AxcelTerm.mount({
     form: $("f-preview"), base: API,
     spec: function () {
-      return [{ method: "GET", path: "/credit-history/" + (account() || "$ADDRESS") + "/score", note: "Scored from the full history" }];
+      var addr = account() || "$ADDRESS";
+      return [{ method: "GET", path: "/credit-history/" + addr + "/score", cmd: "axcel score " + AxcelTerm.sh(addr), note: "Scored from the full history" }];
     },
     check: function () { return account() ? null : "read your history first."; },
     busy: function (f, on) {
@@ -109,7 +118,10 @@
     done: function (f, r) {
       card(r, "Preview from your Mainnet history. Linking your account and verifying your identity in Part 2 issues the tier on-ledger.");
       save("axcel.preview", { account: account(), score: r.score, tier: r.tier });
-      return "Score " + Math.round(r.score) + ", Tier " + r.tier + ".";
+      return [
+        "Score " + Math.round(r.score) + " · Tier " + r.tier,
+        "Credit line $" + Number(r.creditLine || 0).toLocaleString() + " from " + r.scoredPayments + " payment" + (r.scoredPayments === 1 ? "" : "s")
+      ];
     }
   });
 
