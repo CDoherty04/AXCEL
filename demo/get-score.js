@@ -145,15 +145,6 @@
   });
 
 
-  // Service status
-  fetch(BASE + "/health").then(function (r) { if (!r.ok) throw 0; }).then(function () {
-    $("conn").querySelector(".mark").className = "mark ok";
-    $("conn-text").textContent = "Connected to the AXCEL service.";
-  }, function () {
-    $("conn").querySelector(".mark").className = "mark due";
-    $("conn-text").textContent = "Not connected yet. The commands will run once the service is up (npm run api).";
-  });
-
   document.addEventListener("axcel:wallet", function (e) {
     // Switching wallets switches profiles. The EVM address is the Mastercard wallet; Mainnet history stays an r-address.
     userId = e.detail ? users()[e.detail.address] || null : load("axcel.userId");
