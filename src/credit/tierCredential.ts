@@ -1,10 +1,10 @@
 import type { SubmittableTransaction, Wallet } from 'xrpl'
-import { CREDENTIAL_TTL_SECONDS, credentialTypes, hex, type Tier } from '../config.js'
+import { CREDENTIAL_TTL_SECONDS, credentialTypes, hex, TIER_ORDER, type Tier } from '../config.js'
 import { tierStatus } from '../identity/kya.js'
 import type { Ledger } from '../xrpl/client.js'
 import { nowUnix, toRippleTime } from '../xrpl/client.js'
 
-const TIERS: Tier[] = ['A', 'B', 'C']
+const TIERS: Tier[] = TIER_ORDER
 
 /** Transactions that replace whatever tier credential the user holds with `tier`, expiring in 30 days. */
 export function tierRefreshTransactions(args: {

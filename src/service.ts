@@ -50,7 +50,7 @@ export interface AgentOptions {
 }
 
 /** When a limit is left blank it falls back to the other one, then to the top tier's credit line. */
-const DEFAULT_LIMIT_CENTS = 100_000
+const DEFAULT_LIMIT_CENTS = Math.round(tiers.A.creditLine * 100)
 
 export interface CreditState {
   tier: Tier | null

@@ -1,4 +1,4 @@
-import { DAY, score as cfg, tiers, type Tier } from '../config.js'
+import { DAY, score as cfg, tierForScore, tierRank, tiers, type Tier } from '../config.js'
 import type { EventContribution, ScoreInput, ScoreResult, ScoreTerms } from './types.js'
 
 const sigmoid = (x: number): number => 1 / (1 + Math.exp(-x))
@@ -10,13 +10,7 @@ export function decay(ageSeconds: number, halfLifeDays = cfg.halfLifeDays): numb
   return Math.pow(0.5, ageSeconds / (halfLifeDays * DAY))
 }
 
-export function tierForScore(s: number): Tier {
-  if (s >= tiers.A.minScore) return 'A'
-  if (s >= tiers.B.minScore) return 'B'
-  return 'C'
-}
-
-const tierRank: Record<Tier, number> = { A: 3, B: 2, C: 1 }
+export { tierForScore }
 
 const DEFAULT_CAP_WINDOW = 180 * DAY
 
@@ -150,8 +144,8 @@ export function computeScore(input: ScoreInput): ScoreResult {
     reasons.push('Tier capped at B: no repayment history yet')
   }
   if (recentDefault) {
-    tier = 'C'
-    reasons.push('Tier capped at C: default within the last 180 days')
+    tier = 'F'
+    reasons.push('Tier capped at F: default within the last 180 days')
   }
 
   return {

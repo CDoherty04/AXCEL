@@ -29,6 +29,9 @@ export const RIPPLE_EPOCH_OFFSET = 946_684_800
 
 export type Tier = 'A' | 'B' | 'C' | 'D' | 'F'
 
+/** Best to worst. There is no E: this is a grade scale (A–D, then F). */
+export const TIER_ORDER: Tier[] = ['A', 'B', 'C', 'D', 'F']
+
 /** Credit line per tier, in test dollars (stand-in for RLUSD). Covers all of a user's agents together. */
 export const tiers: Record<Tier, { minScore: number; creditLine: number }> = {
   A: { minScore: 700, creditLine: 10000 },
@@ -36,6 +39,21 @@ export const tiers: Record<Tier, { minScore: number; creditLine: number }> = {
   C: { minScore: 400, creditLine: 100 },
   D: { minScore: 360, creditLine: 10 },
   F: { minScore: 0, creditLine: 1 },
+}
+
+export const tierRank: Record<Tier, number> = {
+  A: 5,
+  B: 4,
+  C: 3,
+  D: 2,
+  F: 1,
+}
+
+export function tierForScore(s: number): Tier {
+  for (const t of TIER_ORDER) {
+    if (s >= tiers[t].minScore) return t
+  }
+  return 'F'
 }
 
 export const CREDENTIAL_TTL_SECONDS = 30 * DAY
@@ -49,7 +67,13 @@ export const credentialTypes = {
   kya: 'KYA_VERIFIED',
   /** Held by an agent's spending account; merchants accept payments only from holders. */
   agentPayer: 'AGENT_PAYER',
-  tier: { A: 'CREDIT_TIER_A', B: 'CREDIT_TIER_B', C: 'CREDIT_TIER_C' } as Record<Tier, string>,
+  tier: {
+    A: 'CREDIT_TIER_A',
+    B: 'CREDIT_TIER_B',
+    C: 'CREDIT_TIER_C',
+    D: 'CREDIT_TIER_D',
+    F: 'CREDIT_TIER_F',
+  } satisfies Record<Tier, string>,
 }
 
 export const score = {

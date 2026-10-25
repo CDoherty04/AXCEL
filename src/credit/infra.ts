@@ -1,5 +1,5 @@
 import { Wallet } from 'xrpl'
-import { credentialTypes, hex, type Tier } from '../config.js'
+import { credentialTypes, hex, TIER_ORDER, type Tier } from '../config.js'
 import type { Infra, Store } from '../store/state.js'
 import { Ledger, createdNodes, nowUnix, toRippleTime } from '../xrpl/client.js'
 import { ViBridge } from '../vi/bridge.js'
@@ -22,11 +22,11 @@ export const tokenAmount = (infra: Infra, value: string | number) => ({
 })
 
 /** Which credentials a tier's domain accepts: "this tier or better". */
-export const domainCredentials = (tier: Tier): Tier[] => (tier === 'A' ? ['A'] : tier === 'B' ? ['A', 'B'] : ['A', 'B', 'C'])
+export const domainCredentials = (tier: Tier): Tier[] => TIER_ORDER.slice(0, TIER_ORDER.indexOf(tier) + 1)
 
 /**
  * One-time setup of the lending side on Devnet: test-dollar issuer, tier domains, the private closed-ended
- * vault gated by the "tier C or better" domain, the loan broker, first-loss cover and seed liquidity.
+ * vault gated by the "tier F or better" domain (any issued tier), the loan broker, first-loss cover and seed liquidity.
  * Idempotent: returns the stored infra if it already exists.
  */
 export async function bootstrapInfra(ledger: Ledger, store: Store, vi: ViBridge): Promise<Infra> {
@@ -44,7 +44,7 @@ export async function bootstrapInfra(ledger: Ledger, store: Store, vi: ViBridge)
   )
 
   const domains = {} as Record<Tier, string>
-  for (const tier of ['A', 'B', 'C'] as Tier[]) {
+  for (const tier of TIER_ORDER) {
     const res = await ledger.submit(
       {
         TransactionType: 'PermissionedDomainSet',
@@ -65,7 +65,7 @@ export async function bootstrapInfra(ledger: Ledger, store: Store, vi: ViBridge)
       Account: service.address,
       Asset: token,
       Flags: 0x10000, // tfVaultPrivate
-      DomainID: domains.C,
+      DomainID: domains.F,
       AssetsMaximum: '10000000',
       VaultKind: 1, // closed-ended: required for loan brokers
       SubscriptionDate: toRippleTime(subscription),

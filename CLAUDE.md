@@ -67,8 +67,8 @@ Twelve native features cover identity, proof, access control, credit and repayme
 | Feature (XLS) | Mainnet status, Oct 24 2026 | Role in the credit layer |
 | --- | --- | --- |
 | DID (XLS-40) | Live since Oct 30, 2024 (record) | `did:xrpl:` identifier for the agent and its owner; the DID document points to the agent's Mastercard registration and public key |
-| Credentials (XLS-70) | Live since Sep 2025 (report) | Two credentials on the user's account: KYA-Verified (owner is a real, KYC'd person) and CreditTier-A/B/C (your score), each with an expiration so tiers must be re-earned |
-| Permissioned Domains (XLS-80) | Live since Feb 4, 2026 (report) | One domain per credit tier, meaning "this tier or better" (A: A only; B: A or B; C: any tier); accounts holding an accepted credential are members automatically, no join step |
+| Credentials (XLS-70) | Live since Sep 2025 (report) | Two credentials on the user's account: KYA-Verified (owner is a real, KYC'd person) and CreditTier-A/B/C/D/F (your score), each with an expiration so tiers must be re-earned |
+| Permissioned Domains (XLS-80) | Live since Feb 4, 2026 (report) | One domain per credit tier, meaning "this tier or better" (A: A only; F: any tier); accounts holding an accepted credential are members automatically, no join step |
 | Deposit Authorization + credential-based DepositPreauth | Live (extended by Credentials) | Lender and merchant accounts accept funds only from credentialed agents |
 | Multi-Purpose Tokens (XLS-33) | Live since about Oct 1, 2025 (report) | Vault shares are MPTs; you can also issue a non-transferable "credit points" MPT as a visible, soulbound-style score |
 | Permission Delegation V1.1 (XLS-75) | Live since Oct 8, 2026 | Owner account delegates only Payment rights to the agent's key, so the agent never holds the master key; up to 10 permissions per delegate |
@@ -158,9 +158,11 @@ Map S to tiers and each tier to a borrowing limit that covers all of the user's 
 
 | Tier | Score | Credit line (example, test dollars) |
 | --- | --- | --- |
-| A | 700 and up | 1,000 |
-| B | 580 to 699 | 250 |
-| C | Below 580 | 50 |
+| A | 700 and up | 10,000 |
+| B | 600 to 699 | 1,000 |
+| C | 400 to 599 | 100 |
+| D | 360 to 399 | 10 |
+| F | Below 360 | 1 |
 
 Issue the tier, not the raw number, as the on-ledger credential.
 
@@ -259,7 +261,7 @@ TypeScript service in `src/`, Python bridge to the pinned VI reference in `vi_br
 | Scoring | `src/scoring/engine.ts` | The formula, per-merchant diminishing returns and cap, 90-day decay, repayment tier cap, default cap, per-event breakdown |
 | History | `src/scoring/history.ts`, `quicknodeHistory.ts` | QuickNode reader built on the teammate's `lib/` (`QUICKNODE_XRP_RPC_URL`), a websocket `account_tx` fallback, and a static reader for demos |
 | Anti-gaming | `src/scoring/antiGaming.ts` | Excludes merchants that are the user's own accounts, share a funding source, or have a DID controlled by the user |
-| Lending | `src/credit/infra.ts`, `loans.ts` | Test-dollar issuer, three tier domains, private closed-ended vault, loan broker with first-loss cover, `LoanSet`, `LoanPay`, atomic credential refresh |
+| Lending | `src/credit/infra.ts`, `loans.ts` | Test-dollar issuer, A–F tier domains, private closed-ended vault, loan broker with first-loss cover, `LoanSet`, `LoanPay`, atomic credential refresh |
 | Credentials | `src/credit/tierCredential.ts` | Tier credential swap (30-day expiry) |
 | Delegation | `src/credit/delegation.ts`, `pots.ts` | `DelegateSet` with `Payment` only, on a per-agent spending account; revoke with an empty permission list; payer credential and merchant `DepositPreauth` |
 | Orchestration | `src/service.ts` | Users, linking, KYA, cold start, tier sync, borrow, agents, purchase settlement, repayment, late sweep, dashboard profile |

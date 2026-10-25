@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { DAY } from '../src/config.js'
+import { DAY, TIER_ORDER, tierForScore, tiers } from '../src/config.js'
+import { domainCredentials } from '../src/credit/infra.js'
 import { computeScore, decay } from '../src/scoring/engine.js'
 import type { ScoreEvent } from '../src/scoring/types.js'
 
@@ -24,6 +25,23 @@ describe('computeScore', () => {
     expect(r.score).toBeNull()
   })
 
+  it('maps scores onto the A–F scale', () => {
+    expect(tierForScore(850)).toBe('A')
+    expect(tierForScore(700)).toBe('A')
+    expect(tierForScore(699)).toBe('B')
+    expect(tierForScore(600)).toBe('B')
+    expect(tierForScore(599)).toBe('C')
+    expect(tierForScore(400)).toBe('C')
+    expect(tierForScore(399)).toBe('D')
+    expect(tierForScore(360)).toBe('D')
+    expect(tierForScore(359)).toBe('F')
+    expect(tierForScore(300)).toBe('F')
+    expect(tiers.A.creditLine).toBe(10000)
+    expect(tiers.F.creditLine).toBe(1)
+    expect(domainCredentials('A')).toEqual(['A'])
+    expect(domainCredentials('F')).toEqual(TIER_ORDER)
+  })
+
   it('keeps the score on the 300-850 range', () => {
     const lo = computeScore({ ...base, events: [] })
     const hi = computeScore({ ...base, events: [...agent(400, 40), ...repay(20)] })
@@ -33,7 +51,7 @@ describe('computeScore', () => {
 
   it('gives a cold-start user with real history a mid score (tier B)', () => {
     const r = computeScore({ ...base, events: plain(24) })
-    expect(r.score!).toBeGreaterThanOrEqual(580)
+    expect(r.score!).toBeGreaterThanOrEqual(600)
     expect(r.score!).toBeLessThan(700)
     expect(r.tier).toBe('B')
   })
@@ -64,7 +82,7 @@ describe('computeScore', () => {
   it('reaches tier A with agent purchases plus on-time repayments', () => {
     const r = computeScore({ ...base, events: [...agent(30), ...repay(4, 'early')] })
     expect(r.tier).toBe('A')
-    expect(r.creditLine).toBe(1000)
+    expect(r.creditLine).toBe(10000)
   })
 
   it('ignores self-dealing merchants', () => {
@@ -102,9 +120,9 @@ describe('computeScore', () => {
     expect(stop.score!).toBeGreaterThan(computeScore({ ...base, events: e }).score!)
   })
 
-  it('drops to tier C after a recent default', () => {
+  it('drops to tier F after a recent default', () => {
     const r = computeScore({ ...base, events: [...agent(30), ...repay(3), ...repay(1, 'default')] })
-    expect(r.tier).toBe('C')
+    expect(r.tier).toBe('F')
   })
 
   it('lowers the score under sustained high utilization', () => {
