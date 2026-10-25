@@ -69,8 +69,8 @@
       <div class="split-body">
         <div class="table-scroll">
           <table>
-            <thead><tr><th>Agent</th><th>Mode</th><th class="num">Per purchase</th><th class="num">Spent</th><th class="num">Buys</th><th>Status</th><th></th></tr></thead>
-            <tbody id="fleet-rows"><tr><td colspan="7" class="small">No agents yet.</td></tr></tbody>
+            <thead><tr><th>Agent</th><th>Mode</th><th class="num">Spent of budget</th><th class="num">Buys</th><th>Status</th><th></th></tr></thead>
+            <tbody id="fleet-rows"><tr><td colspan="6" class="small">No agents yet.</td></tr></tbody>
           </table>
         </div>
         <p class="after"><button class="btn" type="button" id="refresh">Refresh</button></p>
@@ -90,17 +90,14 @@
           <form class="form term-body" id="f-agent">
             <div class="field-row">
               <div class="field"><label for="a-label">Agent name</label><input id="a-label" name="label" required placeholder="Shopper"></div>
-              <div class="field">
-                <label for="a-mode">Mode</label>
-                <select id="a-mode" name="mode">
-                  <option value="immediate">Immediate: I approve each order</option>
-                  <option value="autonomous">Autonomous: it buys within limits</option>
-                </select>
-              </div>
+              <div class="field"><label for="a-budget">Budget ($)</label><input id="a-budget" name="budget" type="number" min="1" step="0.01" placeholder="Optional"></div>
             </div>
-            <div class="field-row">
-              <div class="field"><label for="a-max">Max per purchase ($)</label><input id="a-max" name="max" type="number" min="1" step="0.01" placeholder="Optional"></div>
-              <div class="field"><label for="a-budget">Total budget ($)</label><input id="a-budget" name="budget" type="number" min="1" step="0.01" placeholder="Optional"></div>
+            <div class="field">
+              <label for="a-mode">Mode</label>
+              <select id="a-mode" name="mode">
+                <option value="immediate">Immediate: I approve each order</option>
+                <option value="autonomous">Autonomous: it buys within limits</option>
+              </select>
             </div>
             <pre class="term-cmd"></pre>
             <p><button class="btn primary" type="submit">Add agent</button></p>
@@ -348,7 +345,7 @@
 </footer>
 
 <script src="term.js?v=8"></script>
-<script src="agents.js?v=14"></script>
+<script src="agents.js?v=15"></script>
 <script src="nav.js"></script>
 <script src="wallet.js"></script>
 <script src="reveal.js"></script>

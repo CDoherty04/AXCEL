@@ -56,13 +56,13 @@
     $("fleet-rows").innerHTML = agents.length ? agents.map(function (a) {
       var live = a.status === "active";
       return "<tr><td>" + esc(a.label) + "</td><td>" + (a.mode === "autonomous" ? "Autonomous" : "Immediate") + "</td>" +
-        '<td class="num">' + money(a.maxPerPurchaseUsd) + '</td><td class="num">' + money(a.spentUsd) + " of " + money(a.budgetUsd) + "</td>" +
+        '<td class="num">' + money(a.spentUsd) + " of " + money(a.budgetUsd) + "</td>" +
         '<td class="num">' + a.purchases + '</td><td class="status"><span class="mark ' + (live ? "ok" : "bad") + '"></span>' + (live ? "Active" : "Revoked") + "</td>" +
         '<td class="num">' + (live ? '<button class="btn small-btn" type="button" data-revoke="' + esc(a.id) + '">Revoke</button>' : "") + "</td></tr>";
-    }).join("") : '<tr><td colspan="7" class="small">No agents yet. Add one below.</td></tr>';
+    }).join("") : '<tr><td colspan="6" class="small">No agents yet. Add one below.</td></tr>';
 
     $("b-agent").innerHTML = active.length
-      ? active.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.label) + " (" + a.mode + ", up to " + money(a.maxPerPurchaseUsd) + ")</option>"; }).join("")
+      ? active.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.label) + " (" + a.mode + ", budget " + money(a.budgetUsd) + ")</option>"; }).join("")
       : '<option value="">' + (p ? "No active agents. Add one above" : !load("axcel.wallet") ? "Connect your wallet first" : !userId ? "Add your first agent above" : "Couldn't load agents (is npm run api running?)") + "</option>";
     buy.render();
     $("r-agent").innerHTML = $("b-agent").innerHTML;
@@ -137,7 +137,7 @@
   var add = AxcelTerm.mount({
     form: $("f-agent"), base: API,
     spec: function (f) {
-      var max = cents(f.max.value), budget = cents(f.budget.value), limit = budget || max || 100000;
+      var budget = cents(f.budget.value), limit = budget || 100000;
       var label = f.label.value.trim();
       var dollars = function (c) { var n = c / 100; return Number.isInteger(n) ? String(n) : n.toFixed(2); };
       if (!userId) {
@@ -149,11 +149,11 @@
       }
       return [{
         method: "POST", path: "/users/" + userId + "/agents", body: {
-          label: label, mode: f.mode.value, maxCents: max || limit, budgetCents: budget || limit, merchantIds: [], items: []
+          label: label, mode: f.mode.value, maxCents: limit, budgetCents: limit, merchantIds: [], items: []
         },
         cmd: "axcel agents add" + flags({
           user: userId, label: label, mode: f.mode.value,
-          max: dollars(max || limit), budget: dollars(budget || limit)
+          budget: dollars(limit)
         })
       }];
     },
@@ -165,12 +165,10 @@
         if (w) { users[w.address] = r.userId; save("axcel.users", users); }
         userId = r.userId;
       }
-      var limit = r.maxCents != null ? r.maxCents / 100 : "";
       var budget = r.budgetCents != null ? r.budgetCents / 100 : "";
       return [
         "Agent " + r.label + " added",
         (r.mode ? r.mode[0].toUpperCase() + r.mode.slice(1) : "Agent") +
-          (limit !== "" ? " · " + money(limit) + " per buy" : "") +
           (budget !== "" ? " · " + money(budget) + " budget" : ""),
         r.pot && r.pot.account ? "Spending account " + short(r.pot.account) : ""
       ];
